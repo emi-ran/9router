@@ -33,6 +33,7 @@ vi.mock("@/shared/constants/config", () => ({
       codex: {
         settingsKey: "codexAutoPing",
         quotaKey: "session",
+        pingOnObservedReset: true,
         pingModel: "gpt-5.5",
         pingText: "hi",
       },
@@ -109,19 +110,40 @@ describe("quota auto-ping", () => {
     expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
   });
 
-  it("does not ping Codex before session reset", async () => {
+  it("sends Codex ping once per observed reset even before reset time", async () => {
     deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
       provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { resetAt: "2026-01-01T13:00:00.000Z" } },
+      quotas: { session: { used: 1, resetAt: "2026-01-01T13:00:00.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);
 
-    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
-    expect(deps.updateProviderConnection).not.toHaveBeenCalled();
+    const executor = deps.getExecutor.mock.results[0].value;
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
+      lastPingedResetAt: "2026-01-01T13:00:00.000Z",
+    }));
+  });
+
+  it("sends Codex ping immediately for unused session windows", async () => {
+    deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
+    deps.getProviderConnections.mockImplementation(async ({ provider }) => (
+      provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
+    ));
+    getCodexUsage.mockResolvedValue({
+      quotas: { session: { used: 0, resetAt: "2026-01-01T17:00:00.000Z" } },
+    });
+
+    await runQuotaAutoPingTick(deps, state);
+
+    const executor = deps.getExecutor.mock.results[0].value;
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
+      lastPingedResetAt: "2026-01-01T17:00:00.000Z",
+    }));
   });
 
   it("sends one tiny gpt-5.5 Codex request after session reset", async () => {
@@ -132,7 +154,7 @@ describe("quota auto-ping", () => {
         : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { resetAt: "2026-01-01T11:59:00.000Z" } },
+      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:00.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);
@@ -167,7 +189,7 @@ describe("quota auto-ping", () => {
         : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { resetAt: "2026-01-01T11:59:00.000Z" } },
+      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:00.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);

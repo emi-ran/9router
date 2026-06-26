@@ -97,7 +97,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
 
   // resetAt is stable for a quota window; skip usage polling until near the reset edge.
   const cachedReset = state.resetCache[key];
-  if (cachedReset && Date.now() < new Date(cachedReset).getTime() - C.refreshAheadMs) return;
+  if (!providerConfig.pingOnObservedReset && cachedReset && Date.now() < new Date(cachedReset).getTime() - C.refreshAheadMs) return;
 
   // Avoid hammering provider auth/quota endpoints if a ping failed recently.
   if (shouldSkipAfterFailure(state, key)) return;
@@ -116,16 +116,18 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   }
 
   const usage = await handler.getUsage(connection.accessToken, proxyOptions);
-  const resetAt = usage?.quotas?.[providerConfig.quotaKey]?.resetAt;
+  const quota = usage?.quotas?.[providerConfig.quotaKey];
+  const resetAt = quota?.resetAt;
   if (!resetAt) return;
 
   state.resetCache[key] = resetAt;
 
   const resetMs = new Date(resetAt).getTime();
   const now = Date.now();
+  const shouldPingObservedReset = providerConfig.pingOnObservedReset === true;
 
-  // Ping only after the reset window opens, and only once per observed resetAt.
-  if (now < resetMs - C.pingLeadMs) return;
+  // Claude waits for reset; Codex starts windows on first request, so ping once per observed resetAt.
+  if (!shouldPingObservedReset && now < resetMs - C.pingLeadMs) return;
   if (connection.lastPingedResetAt === resetAt) return;
 
   const ok = await handler.sendPing(connection, providerConfig, proxyOptions, deps);
@@ -190,6 +192,8 @@ export async function runQuotaAutoPingTick(deps = createDefaultDeps(), state = g
 
 export function startQuotaAutoPing() {
   if (g.interval) return;
+  console.log("[AutoPing] scheduler started");
+  runQuotaAutoPingTick().catch(() => {});
   g.interval = setInterval(() => { runQuotaAutoPingTick().catch(() => {}); }, C.tickIntervalMs);
   if (g.interval.unref) g.interval.unref();
 }
