@@ -37,6 +37,12 @@ function cacheKey(provider, connectionId) {
   return `${provider}:${connectionId}`;
 }
 
+function normalizeResetKey(resetAt) {
+  const ms = new Date(resetAt).getTime();
+  if (!Number.isFinite(ms)) return resetAt;
+  return new Date(Math.floor(ms / 60000) * 60000).toISOString();
+}
+
 function buildProxyOptions(cfg) {
   return {
     connectionProxyEnabled: cfg.connectionProxyEnabled === true,
@@ -124,11 +130,13 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
 
   const resetMs = new Date(resetAt).getTime();
   const now = Date.now();
+  const resetKey = normalizeResetKey(resetAt);
+  const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
   const shouldPingObservedReset = providerConfig.pingOnObservedReset === true;
 
   // Claude waits for reset; Codex starts windows on first request, so ping once per observed resetAt.
   if (!shouldPingObservedReset && now < resetMs - C.pingLeadMs) return;
-  if (connection.lastPingedResetAt === resetAt) return;
+  if (lastPingedResetKey === resetKey) return;
 
   const ok = await handler.sendPing(connection, providerConfig, proxyOptions, deps);
   if (!ok) {
@@ -141,6 +149,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   delete state.failureCache[key];
   await deps.updateProviderConnection(connection.id, {
     lastPingedResetAt: resetAt,
+    lastPingedResetKey: resetKey,
     lastPingAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });

@@ -125,6 +125,7 @@ describe("quota auto-ping", () => {
     expect(executor.execute).toHaveBeenCalledTimes(1);
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T13:00:00.000Z",
+      lastPingedResetKey: "2026-01-01T13:00:00.000Z",
     }));
   });
 
@@ -143,6 +144,7 @@ describe("quota auto-ping", () => {
     expect(executor.execute).toHaveBeenCalledTimes(1);
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T17:00:00.000Z",
+      lastPingedResetKey: "2026-01-01T17:00:00.000Z",
     }));
   });
 
@@ -178,23 +180,24 @@ describe("quota auto-ping", () => {
     }));
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T11:59:00.000Z",
+      lastPingedResetKey: "2026-01-01T11:59:00.000Z",
     }));
   });
 
-  it("does not ping same Codex reset twice", async () => {
+  it("does not ping same Codex reset twice when seconds drift", async () => {
     deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
       provider === "codex"
-        ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token", lastPingedResetAt: "2026-01-01T11:59:00.000Z" }]
+        ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token", lastPingedResetAt: "2026-01-01T11:59:44.000Z" }]
         : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:00.000Z" } },
+      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:47.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);
 
-    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+    expect(deps.getExecutor).not.toHaveBeenCalled();
   });
 
   it("skips non-OAuth Codex connections", async () => {
