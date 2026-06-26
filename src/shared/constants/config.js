@@ -80,6 +80,7 @@ export const QUOTA_AUTOPING_CONFIG = {
       settingsKey: "codexAutoPing",
       quotaKey: "session",
       pingOnObservedReset: true,
+      skipWhenBlockingQuotaExhausted: true,
       // Free and Plus Codex accounts both expose gpt-5.5; avoid fallback probes that waste requests.
       pingModel: "gpt-5.5",
       pingText: "hi",

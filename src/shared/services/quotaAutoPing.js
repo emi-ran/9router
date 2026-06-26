@@ -43,6 +43,33 @@ function normalizeResetKey(resetAt) {
   return new Date(Math.floor(ms / 60000) * 60000).toISOString();
 }
 
+function toFiniteNumber(value, fallback = null) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function isQuotaExhausted(quota) {
+  if (!quota || quota.unlimited === true) return false;
+  const remaining = toFiniteNumber(quota.remaining);
+  if (remaining !== null) return remaining <= 0;
+
+  const used = toFiniteNumber(quota.used);
+  const total = toFiniteNumber(quota.total);
+  return total !== null && total > 0 && used !== null && used >= total;
+}
+
+function hasQuotaUsage(quota) {
+  return toFiniteNumber(quota?.used, 0) > 0;
+}
+
+function hasExhaustedBlockingQuota(quotas, sessionKey) {
+  return Object.entries(quotas || {}).some(([name, quota]) => name !== sessionKey && isQuotaExhausted(quota));
+}
+
 function buildProxyOptions(cfg) {
   return {
     connectionProxyEnabled: cfg.connectionProxyEnabled === true,
@@ -122,9 +149,13 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   }
 
   const usage = await handler.getUsage(connection.accessToken, proxyOptions);
-  const quota = usage?.quotas?.[providerConfig.quotaKey];
+  const quotas = usage?.quotas || {};
+  const quota = quotas?.[providerConfig.quotaKey];
   const resetAt = quota?.resetAt;
   if (!resetAt) return;
+
+  if (providerConfig.skipWhenBlockingQuotaExhausted && hasExhaustedBlockingQuota(quotas, providerConfig.quotaKey)) return;
+  if (isQuotaExhausted(quota)) return;
 
   state.resetCache[key] = resetAt;
 
@@ -132,7 +163,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   const now = Date.now();
   const resetKey = normalizeResetKey(resetAt);
   const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
-  const shouldPingObservedReset = providerConfig.pingOnObservedReset === true;
+  const shouldPingObservedReset = providerConfig.pingOnObservedReset === true && !hasQuotaUsage(quota);
 
   // Claude waits for reset; Codex starts windows on first request, so ping once per observed resetAt.
   if (!shouldPingObservedReset && now < resetMs - C.pingLeadMs) return;

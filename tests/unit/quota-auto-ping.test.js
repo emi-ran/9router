@@ -34,6 +34,7 @@ vi.mock("@/shared/constants/config", () => ({
         settingsKey: "codexAutoPing",
         quotaKey: "session",
         pingOnObservedReset: true,
+        skipWhenBlockingQuotaExhausted: true,
         pingModel: "gpt-5.5",
         pingText: "hi",
       },
@@ -110,7 +111,7 @@ describe("quota auto-ping", () => {
     expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
   });
 
-  it("sends Codex ping once per observed reset even before reset time", async () => {
+  it("does not ping Codex when session window already has usage", async () => {
     deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
       provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
@@ -121,12 +122,8 @@ describe("quota auto-ping", () => {
 
     await runQuotaAutoPingTick(deps, state);
 
-    const executor = deps.getExecutor.mock.results[0].value;
-    expect(executor.execute).toHaveBeenCalledTimes(1);
-    expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
-      lastPingedResetAt: "2026-01-01T13:00:00.000Z",
-      lastPingedResetKey: "2026-01-01T13:00:00.000Z",
-    }));
+    expect(deps.getExecutor).not.toHaveBeenCalled();
+    expect(deps.updateProviderConnection).not.toHaveBeenCalled();
   });
 
   it("sends Codex ping immediately for unused session windows", async () => {
@@ -148,6 +145,39 @@ describe("quota auto-ping", () => {
     }));
   });
 
+  it("does not ping Codex when weekly quota is exhausted", async () => {
+    deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
+    deps.getProviderConnections.mockImplementation(async ({ provider }) => (
+      provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
+    ));
+    getCodexUsage.mockResolvedValue({
+      quotas: {
+        session: { used: 0, total: 100, remaining: 100, resetAt: "2026-01-01T17:00:00.000Z" },
+        weekly: { used: 100, total: 100, remaining: 0, resetAt: "2026-01-03T12:00:00.000Z" },
+      },
+    });
+
+    await runQuotaAutoPingTick(deps, state);
+
+    expect(deps.getExecutor).not.toHaveBeenCalled();
+    expect(deps.updateProviderConnection).not.toHaveBeenCalled();
+  });
+
+  it("does not ping Codex when session quota is exhausted", async () => {
+    deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
+    deps.getProviderConnections.mockImplementation(async ({ provider }) => (
+      provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
+    ));
+    getCodexUsage.mockResolvedValue({
+      quotas: { session: { used: 100, total: 100, remaining: 0, resetAt: "2026-01-02T12:00:00.000Z" } },
+    });
+
+    await runQuotaAutoPingTick(deps, state);
+
+    expect(deps.getExecutor).not.toHaveBeenCalled();
+    expect(deps.updateProviderConnection).not.toHaveBeenCalled();
+  });
+
   it("sends one tiny gpt-5.5 Codex request after session reset", async () => {
     deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
@@ -156,7 +186,7 @@ describe("quota auto-ping", () => {
         : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:00.000Z" } },
+      quotas: { session: { used: 0, total: 100, remaining: 100, resetAt: "2026-01-01T11:59:00.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);
@@ -192,7 +222,7 @@ describe("quota auto-ping", () => {
         : []
     ));
     getCodexUsage.mockResolvedValue({
-      quotas: { session: { used: 10, resetAt: "2026-01-01T11:59:47.000Z" } },
+      quotas: { session: { used: 0, total: 100, remaining: 100, resetAt: "2026-01-01T11:59:47.000Z" } },
     });
 
     await runQuotaAutoPingTick(deps, state);
