@@ -60,12 +60,17 @@ vi.mock("open-sse/services/usage/codex.js", () => ({
   getCodexUsage: vi.fn(),
 }));
 
+vi.mock("open-sse/executors/index.js", () => ({
+  getExecutor: vi.fn(),
+}));
+
 describe("quota auto-ping", () => {
   let runQuotaAutoPingTick;
   let deps;
   let state;
   let getCodexUsage;
   let getClaudeUsage;
+  let getExecutor;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -74,6 +79,7 @@ describe("quota auto-ping", () => {
 
     ({ getCodexUsage } = await import("open-sse/services/usage/codex.js"));
     ({ getClaudeUsage } = await import("open-sse/services/usage/claude.js"));
+    ({ getExecutor } = await import("open-sse/executors/index.js"));
     ({ runQuotaAutoPingTick } = await import("../../src/shared/services/quotaAutoPing.js"));
 
     deps = {
@@ -83,7 +89,13 @@ describe("quota auto-ping", () => {
       resolveConnectionProxyConfig: vi.fn().mockResolvedValue({}),
       refreshAndUpdateCredentials: vi.fn(async (connection) => ({ connection, refreshed: false })),
       proxyAwareFetch: vi.fn().mockResolvedValue({ ok: true }),
+      getExecutor: vi.fn(() => ({
+        execute: vi.fn().mockResolvedValue({ response: { ok: true, body: { cancel: vi.fn() } } }),
+      })),
     };
+    getExecutor.mockReturnValue({
+      execute: vi.fn().mockResolvedValue({ response: { ok: true, body: { cancel: vi.fn() } } }),
+    });
     state = { running: false, resetCache: {}, failureCache: {} };
     vi.setSystemTime(new Date("2026-01-01T12:00:00.000Z"));
   });
@@ -125,19 +137,23 @@ describe("quota auto-ping", () => {
 
     await runQuotaAutoPingTick(deps, state);
 
-    expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
-    const [url, init] = deps.proxyAwareFetch.mock.calls[0];
-    expect(url).toBe("https://chatgpt.com/backend-api/codex/responses");
-    expect(init.headers.Authorization).toBe("Bearer token");
-    expect(init.headers.originator).toBe("codex_cli_rs");
-    expect(init.headers.session_id).toBe("codex-1");
-    expect(init.headers["chatgpt-account-id"]).toBe("ws-1");
-    expect(JSON.parse(init.body)).toEqual({
+    const executor = deps.getExecutor.mock.results[0].value;
+    expect(deps.getExecutor).toHaveBeenCalledWith("codex");
+    expect(executor.execute).toHaveBeenCalledWith(expect.objectContaining({
       model: "gpt-5.5",
-      input: "hi",
-      store: false,
       stream: false,
-    });
+      credentials: expect.objectContaining({
+        accessToken: "token",
+        connectionId: "codex-1",
+        providerSpecificData: { workspaceId: "ws-1" },
+      }),
+      body: {
+        model: "gpt-5.5",
+        input: "hi",
+        store: false,
+        stream: false,
+      },
+    }));
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T11:59:00.000Z",
     }));
@@ -168,7 +184,7 @@ describe("quota auto-ping", () => {
     await runQuotaAutoPingTick(deps, state);
 
     expect(getCodexUsage).not.toHaveBeenCalled();
-    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+    expect(deps.getExecutor).not.toHaveBeenCalled();
   });
 
   it("keeps Claude session quota key behavior", async () => {

@@ -4,8 +4,8 @@ import "open-sse/index.js";
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
 import { getClaudeUsage } from "open-sse/services/usage/claude.js";
 import { getCodexUsage } from "open-sse/services/usage/codex.js";
+import { getExecutor } from "open-sse/executors/index.js";
 import { CLAUDE_CLI_SPOOF_HEADERS } from "open-sse/providers/shared.js";
-import { U } from "open-sse/services/usage/shared.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route.js";
@@ -13,7 +13,6 @@ import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
 
 const C = QUOTA_AUTOPING_CONFIG;
 const CLAUDE_PING_URL = "https://api.anthropic.com/v1/messages?beta=true";
-const CODEX_PING_URL = U("codex").baseUrl || "https://chatgpt.com/backend-api/codex/responses";
 
 const providerHandlers = {
   claude: {
@@ -66,31 +65,26 @@ async function sendClaudePing(connection, providerConfig, proxyOptions, deps) {
 }
 
 async function sendCodexPing(connection, providerConfig, proxyOptions, deps) {
-  const headers = {
-    "Authorization": `Bearer ${connection.accessToken}`,
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-    "originator": "codex_cli_rs",
-    "User-Agent": "codex_cli_rs/0.136.0",
-    "session_id": connection.id || "default",
-  };
-
-  const workspaceId = connection.providerSpecificData?.workspaceId;
-  if (typeof workspaceId === "string" && workspaceId) {
-    headers["chatgpt-account-id"] = workspaceId;
-  }
-
-  const res = await deps.proxyAwareFetch(CODEX_PING_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
+  const executor = deps.getExecutor("codex");
+  const { response } = await executor.execute({
+    model: providerConfig.pingModel,
+    stream: false,
+    credentials: {
+      accessToken: connection.accessToken,
+      connectionId: connection.id,
+      providerSpecificData: connection.providerSpecificData,
+    },
+    proxyOptions,
+    log: console,
+    body: {
       model: providerConfig.pingModel,
       input: providerConfig.pingText,
       store: false,
       stream: false,
-    }),
-  }, proxyOptions);
-  return res.ok;
+    },
+  });
+  try { await response.body?.cancel?.(); } catch { /* noop */ }
+  return response.ok;
 }
 
 function shouldSkipAfterFailure(state, key, nowMs = Date.now()) {
@@ -159,6 +153,7 @@ function createDefaultDeps() {
     resolveConnectionProxyConfig,
     refreshAndUpdateCredentials,
     proxyAwareFetch,
+    getExecutor,
   };
 }
 
