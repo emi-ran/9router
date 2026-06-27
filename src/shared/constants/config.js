@@ -79,9 +79,8 @@ export const QUOTA_AUTOPING_CONFIG = {
     codex: {
       settingsKey: "codexAutoPing",
       quotaKey: "session",
-      pingOnObservedReset: true,
-      pingOnSlidingReset: true,
-      slidingResetDriftMs: 30000,
+      pingWhenResetAtSlides: true,
+      resetAtDriftMs: 30000,
       minPingIntervalMs: 14400000,
       skipWhenBlockingQuotaExhausted: true,
       // Free and Plus Codex accounts both expose gpt-5.5; avoid fallback probes that waste requests.

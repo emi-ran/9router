@@ -69,18 +69,28 @@ function isQuotaExhausted(quota) {
   return total !== null && total > 0 && used !== null && used >= total;
 }
 
-function hasQuotaUsage(quota) {
-  return toFiniteNumber(quota?.used, 0) > 0;
-}
-
 function wasPingedRecently(connection, intervalMs, nowMs = Date.now()) {
   if (!intervalMs) return false;
   const lastPingAtMs = new Date(connection.lastPingAt).getTime();
   return Number.isFinite(lastPingAtMs) && nowMs - lastPingAtMs < intervalMs;
 }
 
+function isBlockingQuotaName(name, sessionKey) {
+  if (name === sessionKey) return false;
+  return !String(name).toLowerCase().includes("session");
+}
+
 function hasExhaustedBlockingQuota(quotas, sessionKey) {
-  return Object.entries(quotas || {}).some(([name, quota]) => name !== sessionKey && isQuotaExhausted(quota));
+  return Object.entries(quotas || {}).some(([name, quota]) => isBlockingQuotaName(name, sessionKey) && isQuotaExhausted(quota));
+}
+
+function shouldPingForReset(providerConfig, cachedReset, resetAt, now) {
+  if (providerConfig.pingWhenResetAtSlides) {
+    return Boolean(cachedReset) && getResetDriftMs(cachedReset, resetAt) >= (providerConfig.resetAtDriftMs || 0);
+  }
+
+  const resetMs = new Date(resetAt).getTime();
+  return Number.isFinite(resetMs) && now >= resetMs - C.pingLeadMs;
 }
 
 function buildProxyOptions(cfg) {
@@ -141,9 +151,9 @@ function shouldSkipAfterFailure(state, key, nowMs = Date.now()) {
 async function pingConnection(conn, provider, providerConfig, handler, deps, state = g) {
   const key = cacheKey(provider, conn.id);
 
-  // resetAt is stable for a quota window; skip usage polling until near the reset edge.
+  // resetAt is stable for time-based windows; Codex polls every tick because inactive windows slide forward.
   const cachedReset = state.resetCache[key];
-  if (!providerConfig.pingOnObservedReset && cachedReset && Date.now() < new Date(cachedReset).getTime() - C.refreshAheadMs) return;
+  if (!providerConfig.pingWhenResetAtSlides && cachedReset && Date.now() < new Date(cachedReset).getTime() - C.refreshAheadMs) return;
 
   // Avoid hammering provider auth/quota endpoints if a ping failed recently.
   if (shouldSkipAfterFailure(state, key)) return;
@@ -167,22 +177,17 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   const resetAt = quota?.resetAt;
   if (!resetAt) return;
 
+  state.resetCache[key] = resetAt;
+
   if (providerConfig.skipWhenBlockingQuotaExhausted && hasExhaustedBlockingQuota(quotas, providerConfig.quotaKey)) return;
   if (isQuotaExhausted(quota)) return;
 
-  state.resetCache[key] = resetAt;
-
-  const resetMs = new Date(resetAt).getTime();
   const now = Date.now();
   const resetKey = normalizeResetKey(resetAt);
   const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
-  const shouldPingObservedReset = providerConfig.pingOnObservedReset === true && !hasQuotaUsage(quota);
-  const shouldPingSlidingReset = providerConfig.pingOnSlidingReset === true
-    && cachedReset
-    && getResetDriftMs(cachedReset, resetAt) >= (providerConfig.slidingResetDriftMs || 0);
 
-  // Claude waits for reset. Codex starts windows on first request; inactive Codex windows expose a sliding resetAt.
-  if (!shouldPingObservedReset && !shouldPingSlidingReset && now < resetMs - C.pingLeadMs) return;
+  // Claude waits for reset. Codex pings only when resetAt slides, which means the 5h window is inactive.
+  if (!shouldPingForReset(providerConfig, cachedReset, resetAt, now)) return;
   if (wasPingedRecently(connection, providerConfig.minPingIntervalMs, now)) return;
   if (lastPingedResetKey === resetKey) return;
 
