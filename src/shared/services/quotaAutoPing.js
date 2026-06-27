@@ -120,11 +120,38 @@ async function sendClaudePing(connection, providerConfig, proxyOptions, deps) {
   return res.ok;
 }
 
+function buildCodexPingInput(text) {
+  return [{
+    type: "message",
+    role: "user",
+    content: [{ type: "input_text", text }],
+  }];
+}
+
+async function drainResponseBody(response) {
+  if (typeof response?.text === "function") {
+    await response.text();
+    return;
+  }
+
+  const reader = response?.body?.getReader?.();
+  if (!reader) return;
+
+  try {
+    while (true) {
+      const { done } = await reader.read();
+      if (done) return;
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+}
+
 async function sendCodexPing(connection, providerConfig, proxyOptions, deps) {
   const executor = deps.getExecutor("codex");
   const { response } = await executor.execute({
     model: providerConfig.pingModel,
-    stream: false,
+    stream: true,
     credentials: {
       accessToken: connection.accessToken,
       connectionId: connection.id,
@@ -134,13 +161,23 @@ async function sendCodexPing(connection, providerConfig, proxyOptions, deps) {
     log: console,
     body: {
       model: providerConfig.pingModel,
-      input: providerConfig.pingText,
+      input: buildCodexPingInput(providerConfig.pingText),
+      instructions: providerConfig.pingInstructions,
+      reasoning: providerConfig.pingReasoningEffort
+        ? { effort: providerConfig.pingReasoningEffort, summary: "auto" }
+        : undefined,
       store: false,
-      stream: false,
+      stream: true,
     },
   });
-  try { await response.body?.cancel?.(); } catch { /* noop */ }
-  return response.ok;
+  if (!response.ok) {
+    try { await response.body?.cancel?.(); } catch { /* noop */ }
+    return false;
+  }
+
+  // Codex only starts the 5h window after the streaming response completes.
+  await drainResponseBody(response);
+  return true;
 }
 
 function shouldSkipAfterFailure(state, key, nowMs = Date.now()) {

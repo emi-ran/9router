@@ -35,10 +35,12 @@ vi.mock("@/shared/constants/config", () => ({
         quotaKey: "session",
         pingWhenResetAtSlides: true,
         resetAtDriftMs: 30000,
-        minPingIntervalMs: 14400000,
+        minPingIntervalMs: 600000,
         skipWhenBlockingQuotaExhausted: true,
         pingModel: "gpt-5.5",
         pingText: "hi",
+        pingInstructions: "Reply with OK.",
+        pingReasoningEffort: "none",
       },
     },
   },
@@ -75,6 +77,7 @@ describe("quota auto-ping", () => {
   let getCodexUsage;
   let getClaudeUsage;
   let getExecutor;
+  let codexResponseText;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -94,11 +97,12 @@ describe("quota auto-ping", () => {
       refreshAndUpdateCredentials: vi.fn(async (connection) => ({ connection, refreshed: false })),
       proxyAwareFetch: vi.fn().mockResolvedValue({ ok: true }),
       getExecutor: vi.fn(() => ({
-        execute: vi.fn().mockResolvedValue({ response: { ok: true, body: { cancel: vi.fn() } } }),
+        execute: vi.fn().mockResolvedValue({ response: { ok: true, text: codexResponseText } }),
       })),
     };
+    codexResponseText = vi.fn().mockResolvedValue("");
     getExecutor.mockReturnValue({
-      execute: vi.fn().mockResolvedValue({ response: { ok: true, body: { cancel: vi.fn() } } }),
+      execute: vi.fn().mockResolvedValue({ response: { ok: true, text: codexResponseText } }),
     });
     state = { running: false, resetCache: {}, failureCache: {} };
     vi.setSystemTime(new Date("2026-01-01T12:00:00.000Z"));
@@ -169,7 +173,7 @@ describe("quota auto-ping", () => {
     deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
       provider === "codex"
-        ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token", lastPingAt: "2026-01-01T11:00:00.000Z" }]
+        ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token", lastPingAt: "2026-01-01T11:55:00.000Z" }]
         : []
     ));
     state.resetCache["codex:codex-1"] = "2026-01-01T17:00:00.000Z";
@@ -271,7 +275,7 @@ describe("quota auto-ping", () => {
     expect(deps.getExecutor).toHaveBeenCalledWith("codex");
     expect(executor.execute).toHaveBeenCalledWith(expect.objectContaining({
       model: "gpt-5.5",
-      stream: false,
+      stream: true,
       credentials: expect.objectContaining({
         accessToken: "token",
         connectionId: "codex-1",
@@ -279,11 +283,18 @@ describe("quota auto-ping", () => {
       }),
       body: {
         model: "gpt-5.5",
-        input: "hi",
+        input: [{
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "hi" }],
+        }],
+        instructions: "Reply with OK.",
+        reasoning: { effort: "none", summary: "auto" },
         store: false,
-        stream: false,
+        stream: true,
       },
     }));
+    expect(codexResponseText).toHaveBeenCalledTimes(1);
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T17:01:00.000Z",
       lastPingedResetKey: "2026-01-01T17:01:00.000Z",
