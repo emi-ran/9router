@@ -963,11 +963,6 @@ export default function ProviderLimits() {
                           {getConnectionSecondaryLabel(conn)}
                         </p>
                       ) : null}
-                      {isCodex && (
-                        <p className="text-[11px] text-text-muted truncate">
-                          Reset eligible: {resetCreditCount}
-                        </p>
-                      )}
                       {conn.provider === "kiro" && (
                         <div className="mt-1 flex flex-wrap items-center gap-1">
                           <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:text-brand-300">
@@ -1013,31 +1008,32 @@ export default function ProviderLimits() {
 
                   <div className="flex items-center gap-1 shrink-0">
                     {isCodex && (
-                      <Tooltip text={`Codex reset credits remaining: ${resetCreditCount}`}>
-                        <div
-                          className={`hidden h-8 items-center gap-1 rounded-lg border px-2 text-[11px] sm:flex ${
-                            resetCreditCount > 0
-                              ? "border-primary/30 bg-primary/5 text-primary"
-                              : "border-black/10 bg-black/[0.02] text-text-muted dark:border-white/10 dark:bg-white/[0.03]"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">restart_alt</span>
-                          <span className="tabular-nums">{resetCreditCount}</span>
-                        </div>
-                      </Tooltip>
-                    )}
-                    {isCodex && resetCreditCount > 0 && (
-                      <Tooltip text={`Use one Codex reset credit. Available: ${resetCreditCount}`}>
+                      <Tooltip
+                        text={
+                          resetCreditCount > 0
+                            ? `Use one Codex reset credit. Available: ${resetCreditCount}`
+                            : "No Codex reset credits available"
+                        }
+                      >
                         <button
                           type="button"
                           onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
-                          disabled={isLoading || rowBusy}
-                          className="flex h-8 items-center gap-1 rounded-lg border border-primary/30 px-2 text-[11px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                          disabled={resetCreditCount <= 0 || isLoading || rowBusy}
+                          aria-label={
+                            resetCreditCount > 0
+                              ? `Use one Codex reset credit. ${resetCreditCount} available.`
+                              : "No Codex reset credits available"
+                          }
+                          className={`flex h-8 min-w-10 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-medium tabular-nums transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/60 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            resetCreditCount > 0
+                              ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
+                              : "border-black/10 bg-black/[0.02] text-text-muted dark:border-white/10 dark:bg-white/[0.03]"
+                          }`}
                         >
                           <span className={`material-symbols-outlined text-[15px] ${isResettingLimit ? "animate-spin" : ""}`}>
-                            {isResettingLimit ? "progress_activity" : "bolt"}
+                            {isResettingLimit ? "progress_activity" : "restart_alt"}
                           </span>
-                          <span className="hidden lg:inline">Reset limit</span>
+                          <span>{resetCreditCount}</span>
                         </button>
                       </Tooltip>
                     )}
