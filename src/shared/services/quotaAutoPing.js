@@ -43,6 +43,13 @@ function normalizeResetKey(resetAt) {
   return new Date(Math.floor(ms / 60000) * 60000).toISOString();
 }
 
+function getResetDriftMs(previousResetAt, nextResetAt) {
+  const previousMs = new Date(previousResetAt).getTime();
+  const nextMs = new Date(nextResetAt).getTime();
+  if (!Number.isFinite(previousMs) || !Number.isFinite(nextMs)) return 0;
+  return nextMs - previousMs;
+}
+
 function toFiniteNumber(value, fallback = null) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -64,6 +71,12 @@ function isQuotaExhausted(quota) {
 
 function hasQuotaUsage(quota) {
   return toFiniteNumber(quota?.used, 0) > 0;
+}
+
+function wasPingedRecently(connection, intervalMs, nowMs = Date.now()) {
+  if (!intervalMs) return false;
+  const lastPingAtMs = new Date(connection.lastPingAt).getTime();
+  return Number.isFinite(lastPingAtMs) && nowMs - lastPingAtMs < intervalMs;
 }
 
 function hasExhaustedBlockingQuota(quotas, sessionKey) {
@@ -164,9 +177,13 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   const resetKey = normalizeResetKey(resetAt);
   const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
   const shouldPingObservedReset = providerConfig.pingOnObservedReset === true && !hasQuotaUsage(quota);
+  const shouldPingSlidingReset = providerConfig.pingOnSlidingReset === true
+    && cachedReset
+    && getResetDriftMs(cachedReset, resetAt) >= (providerConfig.slidingResetDriftMs || 0);
 
-  // Claude waits for reset; Codex starts windows on first request, so ping once per observed resetAt.
-  if (!shouldPingObservedReset && now < resetMs - C.pingLeadMs) return;
+  // Claude waits for reset. Codex starts windows on first request; inactive Codex windows expose a sliding resetAt.
+  if (!shouldPingObservedReset && !shouldPingSlidingReset && now < resetMs - C.pingLeadMs) return;
+  if (wasPingedRecently(connection, providerConfig.minPingIntervalMs, now)) return;
   if (lastPingedResetKey === resetKey) return;
 
   const ok = await handler.sendPing(connection, providerConfig, proxyOptions, deps);
