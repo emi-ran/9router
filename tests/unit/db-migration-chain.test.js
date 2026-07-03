@@ -37,6 +37,9 @@ describe("Schema migrations", () => {
       "_meta", "settings", "providerConnections", "providerNodes",
       "proxyPools", "apiKeys", "combos", "kv", "usageHistory", "usageDaily", "requestDetails",
     ]));
+
+    const apiKeyColumns = db.all(`PRAGMA table_info(apiKeys)`).map(c => c.name);
+    expect(apiKeyColumns).toContain("expiresAt");
   });
 
   it("existing DB at older schemaVersion → re-applies pending migrations on restart", async () => {
@@ -78,6 +81,7 @@ describe("Schema migrations", () => {
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
     expect(keys[0].key).toBe("abc");
+    expect(keys[0].expiresAt).toBeNull();
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);
     expect(aliases).toHaveLength(1);

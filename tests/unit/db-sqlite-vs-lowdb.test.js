@@ -18,6 +18,8 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
+  delete global._dbAdapter;
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -53,12 +55,22 @@ describe("DB SQLite layer — public API parity", () => {
     expect(k.key).toMatch(/^sk-/);
     expect(k.machineId).toBe("machine-abc");
     expect(k.isActive).toBe(true);
+    expect(k.expiresAt).toBeNull();
 
     const all = await sqliteDb.getApiKeys();
     expect(all.find((x) => x.id === k.id)).toBeDefined();
 
     expect(await sqliteDb.validateApiKey(k.key)).toBeTruthy();
     expect(await sqliteDb.validateApiKey("invalid")).toBeFalsy();
+
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const futureKey = await sqliteDb.createApiKey("future-key", "machine-abc", future);
+    expect(futureKey.expiresAt).toBe(future);
+    expect(await sqliteDb.validateApiKey(futureKey.key)).toBeTruthy();
+
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const pastKey = await sqliteDb.createApiKey("past-key", "machine-abc", past);
+    expect(await sqliteDb.validateApiKey(pastKey.key)).toBeFalsy();
 
     const deleted = await sqliteDb.deleteApiKey(k.id);
     expect(deleted).toBe(true);
@@ -234,6 +246,7 @@ describe("DB SQLite layer — public API parity", () => {
     const exported = await sqliteDb.exportDb();
     expect(exported.settings).toBeDefined();
     expect(Array.isArray(exported.providerConnections)).toBe(true);
+    expect(exported.apiKeys.every((key) => Object.hasOwn(key, "expiresAt"))).toBe(true);
     expect(typeof exported.modelAliases).toBe("object");
 
     // Add marker, export, import a different payload, verify reset

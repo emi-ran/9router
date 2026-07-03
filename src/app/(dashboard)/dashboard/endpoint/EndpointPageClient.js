@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { translate, getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
 import {
   TUNNEL_BENEFITS,
   TUNNEL_PING_INTERVAL_MS,
@@ -17,12 +18,51 @@ import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
+
+const API_KEY_EXPIRY_PRESETS = [
+  { value: "never", labelKey: "Never expires" },
+  { value: "1d", labelKey: "1 day", ms: 24 * 60 * 60 * 1000 },
+  { value: "7d", labelKey: "7 days", ms: 7 * 24 * 60 * 60 * 1000 },
+  { value: "30d", labelKey: "30 days", ms: 30 * 24 * 60 * 60 * 1000 },
+  { value: "90d", labelKey: "90 days", ms: 90 * 24 * 60 * 60 * 1000 },
+  { value: "custom", labelKey: "Custom date/time" },
+];
+
+function isApiKeyExpired(key) {
+  if (!key?.expiresAt) return false;
+  const time = new Date(key.expiresAt).getTime();
+  return !Number.isFinite(time) || time <= Date.now();
+}
+
+function formatApiKeyExpiry(expiresAt, locale = getCurrentLocale()) {
+  if (!expiresAt) return { kind: "text", text: translate("Never expires") };
+  const date = new Date(expiresAt);
+  if (!Number.isFinite(date.getTime())) return { kind: "text", text: translate("Invalid expiry") };
+  return { kind: "date", text: date.toLocaleString(locale) };
+}
+
+function getApiKeyExpiryLabel(key, locale = getCurrentLocale()) {
+  if (!key?.expiresAt) return { kind: "text", text: translate("Never expires") };
+  const date = new Date(key.expiresAt);
+  if (!Number.isFinite(date.getTime())) return { kind: "text", text: translate("Invalid expiry") };
+  return {
+    kind: "dated",
+    prefix: translate(isApiKeyExpired(key) ? "Expired" : "Expires"),
+    text: date.toLocaleString(locale),
+  };
+}
+
 export default function APIPageClient({ machineId }) {
+  const [locale, setLocale] = useState(getCurrentLocale());
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyExpiryPreset, setNewKeyExpiryPreset] = useState("never");
+  const [newKeyCustomExpiry, setNewKeyCustomExpiry] = useState("");
+  const [newKeyError, setNewKeyError] = useState("");
   const [createdKey, setCreatedKey] = useState(null);
+  const [createdKeyExpiresAt, setCreatedKeyExpiresAt] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
@@ -607,25 +647,56 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  const resetNewKeyForm = () => {
+    setNewKeyName("");
+    setNewKeyExpiryPreset("never");
+    setNewKeyCustomExpiry("");
+    setNewKeyError("");
+  };
+
+  const buildNewKeyExpiresAt = () => {
+    if (newKeyExpiryPreset === "never") return null;
+    if (newKeyExpiryPreset === "custom") {
+      if (!newKeyCustomExpiry) return { error: "Choose a custom expiry date." };
+      const date = new Date(newKeyCustomExpiry);
+      if (!Number.isFinite(date.getTime())) return { error: "Choose a valid expiry date." };
+      if (date.getTime() <= Date.now()) return { error: "Expiry must be in the future." };
+      return date.toISOString();
+    }
+    const preset = API_KEY_EXPIRY_PRESETS.find((item) => item.value === newKeyExpiryPreset);
+    if (!preset?.ms) return null;
+    return new Date(Date.now() + preset.ms).toISOString();
+  };
+
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
+
+    const expiresAt = buildNewKeyExpiresAt();
+    if (expiresAt?.error) {
+      setNewKeyError(expiresAt.error);
+      return;
+    }
 
     try {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify({ name: newKeyName.trim(), expiresAt }),
       });
       const data = await res.json();
 
       if (res.ok) {
         setCreatedKey(data.key);
+        setCreatedKeyExpiresAt(data.expiresAt || null);
         await fetchData();
-        setNewKeyName("");
+        resetNewKeyForm();
         setShowAddModal(false);
+      } else {
+        setNewKeyError(data.error || "Failed to create key");
       }
     } catch (error) {
       console.log("Error creating key:", error);
+      setNewKeyError("Failed to create key");
     }
   };
 
@@ -682,6 +753,8 @@ export default function APIPageClient({ machineId }) {
   };
 
   const [baseUrl, setBaseUrl] = useState("/v1");
+
+  useEffect(() => onLocaleChange(() => setLocale(getCurrentLocale())), []);
 
   // Hydration fix: Only access window on client side
   useEffect(() => {
@@ -992,10 +1065,13 @@ export default function APIPageClient({ machineId }) {
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
+            {keys.map((key) => {
+              const expired = isApiKeyExpired(key);
+              const expiryLabel = getApiKeyExpiryLabel(key, locale);
+              return (
               <div
                 key={key.id}
-                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
+                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${(key.isActive === false || expired) ? "opacity-60" : ""}`}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{key.name}</p>
@@ -1022,11 +1098,12 @@ export default function APIPageClient({ machineId }) {
                     </button>
                   </div>
                   <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
+                    {translate("Created")} {new Date(key.createdAt).toLocaleDateString(locale)}
                   </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
-                  )}
+                  <p className={`text-xs mt-1 ${expired ? "text-red-500" : "text-text-muted"}`}>
+                    {expiryLabel.kind === "text" ? expiryLabel.text : (<><span>{expiryLabel.prefix}</span>{" "}<span data-i18n-skip>{expiryLabel.text}</span></>)}
+                  </p>
+                  {key.isActive === false && <p className="text-xs text-orange-500 mt-1">{translate("Paused")}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <Toggle
@@ -1056,7 +1133,8 @@ export default function APIPageClient({ machineId }) {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -1067,7 +1145,7 @@ export default function APIPageClient({ machineId }) {
         title="Create API Key"
         onClose={() => {
           setShowAddModal(false);
-          setNewKeyName("");
+          resetNewKeyForm();
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1077,6 +1155,39 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
           />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-text-main">Expiry</label>
+            <select
+              value={newKeyExpiryPreset}
+              onChange={(e) => {
+                setNewKeyExpiryPreset(e.target.value);
+                setNewKeyError("");
+              }}
+              className="w-full py-2.5 px-3 text-sm text-text-main bg-surface-2 rounded-[10px] border border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40"
+            >
+              {API_KEY_EXPIRY_PRESETS.map((preset) => (
+                <option key={preset.value} value={preset.value}>{translate(preset.labelKey)}</option>
+              ))}
+            </select>
+            <p className="text-xs text-text-muted">{translate("Expired keys stay visible but stop authenticating requests.")}</p>
+          </div>
+          {newKeyExpiryPreset === "custom" && (
+            <Input
+              label={translate("Custom Expiry")}
+              type="datetime-local"
+              value={newKeyCustomExpiry}
+              onChange={(e) => {
+                setNewKeyCustomExpiry(e.target.value);
+                setNewKeyError("");
+              }}
+            />
+          )}
+          {newKeyError && (
+            <p className="text-xs text-red-500 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">error</span>
+              {translate(newKeyError)}
+            </p>
+          )}
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create
@@ -1084,7 +1195,7 @@ export default function APIPageClient({ machineId }) {
             <Button
               onClick={() => {
                 setShowAddModal(false);
-                setNewKeyName("");
+                resetNewKeyForm();
               }}
               variant="ghost"
               fullWidth
@@ -1099,7 +1210,10 @@ export default function APIPageClient({ machineId }) {
       <Modal
         isOpen={!!createdKey}
         title="API Key Created"
-        onClose={() => setCreatedKey(null)}
+        onClose={() => {
+          setCreatedKey(null);
+          setCreatedKeyExpiresAt(null);
+        }}
       >
         <div className="flex flex-col gap-4">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
@@ -1124,7 +1238,20 @@ export default function APIPageClient({ machineId }) {
               {copied === "created_key" ? "Copied!" : "Copy"}
             </Button>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
+          <p className="text-sm text-text-muted">
+            {(() => {
+              const createdExpiry = formatApiKeyExpiry(createdKeyExpiresAt, locale);
+              return createdExpiry.kind === "text" ? (
+                <>{translate("Expiry")}: {createdExpiry.text}</>
+              ) : (
+                <>{translate("Expiry")}: <span data-i18n-skip>{createdExpiry.text}</span></>
+              );
+            })()}
+          </p>
+          <Button onClick={() => {
+            setCreatedKey(null);
+            setCreatedKeyExpiresAt(null);
+          }} fullWidth>
             Done
           </Button>
         </div>
