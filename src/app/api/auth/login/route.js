@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
+import { getJwtSecret } from "@/lib/auth/dashboardSession";
+import { setLoginCookies } from "@/mine/auth/rememberMe";
 import { isOidcConfigured } from "@/lib/auth/oidc";
 import { isSamlConfigured } from "@/lib/auth/saml.js";
 import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
@@ -29,7 +30,7 @@ export async function POST(request) {
       );
     }
 
-    const { password } = await request.json();
+    const { password, rememberMe } = await request.json();
     const settings = await getSettings();
 
     // Block login via tunnel/tailscale if dashboard access is disabled
@@ -88,7 +89,7 @@ export async function POST(request) {
       }
 
       const cookieStore = await cookies();
-      await setDashboardAuthCookie(cookieStore, request);
+      await setLoginCookies(cookieStore, request, getJwtSecret(), {}, rememberMe === true);
 
       return NextResponse.json({ success: true, mustChangePassword: false }, { headers: NO_STORE_HEADERS });
     }

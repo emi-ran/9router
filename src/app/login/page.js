@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Card, Button, Input } from "@/shared/components";
+import RememberMeCheckbox from "@/mine/auth/RememberMeCheckbox";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [resetHint, setResetHint] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
@@ -73,7 +75,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, rememberMe }),
       });
 
       if (res.ok) {
@@ -239,6 +241,12 @@ export default function LoginPage() {
                     </p>
                   )}
                 </div>
+
+                <RememberMeCheckbox
+                  checked={rememberMe}
+                  onChange={setRememberMe}
+                  disabled={loading || retryAfter > 0}
+                />
 
                 <Button
                   type="submit"

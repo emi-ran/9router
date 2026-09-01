@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
-import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  handleGuardSession,
+} from "@/mine/auth/rememberMe";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
@@ -160,13 +164,13 @@ async function canAccessPublicLlmApi(request) {
 async function canAccessLocalOnlyRoute(request) {
   if (await hasValidCliToken(request)) return true;
   // Browser on host: loopback Host + Origin (blocks tunnel/CSRF) + auth (JWT or requireLogin=false)
-  if (isLocalRequest(request) && await isAuthenticated(request)) return true;
+  const auth = await isAuthenticated(request);
+  if (isLocalRequest(request) && auth.ok) return true;
   return false;
 }
 
-async function hasValidToken(request) {
-  const token = request.cookies.get("auth_token")?.value;
-  return await verifyDashboardAuthToken(token);
+async function checkSessionWithRefresh(request) {
+  return await handleGuardSession(request);
 }
 
 // Read settings directly from DB to avoid self-fetch deadlock in proxy
@@ -179,10 +183,11 @@ async function loadSettings() {
 }
 
 async function isAuthenticated(request) {
-  if (await hasValidToken(request)) return true;
+  const guardSession = await checkSessionWithRefresh(request);
+  if (guardSession.authenticated) return { ok: true, guardSession };
   const settings = await loadSettings();
-  if (settings && settings.requireLogin === false) return true;
-  return false;
+  if (settings && settings.requireLogin === false) return { ok: true, guardSession };
+  return { ok: false, guardSession };
 }
 
 function isPublicApi(pathname) {
@@ -210,8 +215,17 @@ export async function proxy(request) {
 
   // Always protected - require valid JWT or local CLI token (machineId-based)
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
-    if (await hasValidCliToken(request) || await hasValidToken(request))
-      return NextResponse.next();
+    if (await hasValidCliToken(request)) return NextResponse.next();
+    const guardSession = await checkSessionWithRefresh(request);
+    if (guardSession.authenticated) {
+      const response = NextResponse.next();
+      if (guardSession.rotated && guardSession.cookieOptions) {
+        const { access, refresh } = guardSession.cookieOptions;
+        response.cookies.set(ACCESS_TOKEN_COOKIE, guardSession.newAccessToken, access);
+        response.cookies.set(REFRESH_TOKEN_COOKIE, guardSession.newRefreshToken, refresh);
+      }
+      return response;
+    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -223,8 +237,17 @@ export async function proxy(request) {
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
-      return NextResponse.next();
+    if (await hasValidCliToken(request)) return NextResponse.next();
+    const auth = await isAuthenticated(request);
+    if (auth.ok) {
+      const response = NextResponse.next();
+      if (auth.guardSession?.rotated && auth.guardSession?.cookieOptions) {
+        const { access, refresh } = auth.guardSession.cookieOptions;
+        response.cookies.set(ACCESS_TOKEN_COOKIE, auth.guardSession.newAccessToken, access);
+        response.cookies.set(REFRESH_TOKEN_COOKIE, auth.guardSession.newRefreshToken, refresh);
+      }
+      return response;
+    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -256,14 +279,16 @@ export async function proxy(request) {
     // If login not required, allow through
     if (!requireLogin) return NextResponse.next();
 
-    // Verify JWT token
-    const token = request.cookies.get("auth_token")?.value;
-    if (token) {
-      if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
-      } else {
-        return NextResponse.redirect(new URL("/login", request.url));
+    // Verify JWT token or perform sliding refresh
+    const guardSession = await checkSessionWithRefresh(request);
+    if (guardSession.authenticated) {
+      const response = NextResponse.next();
+      if (guardSession.rotated && guardSession.cookieOptions) {
+        const { access, refresh } = guardSession.cookieOptions;
+        response.cookies.set(ACCESS_TOKEN_COOKIE, guardSession.newAccessToken, access);
+        response.cookies.set(REFRESH_TOKEN_COOKIE, guardSession.newRefreshToken, refresh);
       }
+      return response;
     }
 
     return NextResponse.redirect(new URL("/login", request.url));

@@ -4,12 +4,23 @@ import { getSettings } from "@/lib/localDb";
 import { isOidcConfigured } from "@/lib/auth/oidc";
 import { isSamlConfigured } from "@/lib/auth/saml.js";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
+import { handleGuardSession, ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/mine/auth/rememberMe";
 
-export async function GET() {
+export async function GET(request = null) {
   try {
     const settings = await getSettings();
     const cookieStore = await cookies();
-    const session = await getDashboardAuthSession(cookieStore.get("auth_token")?.value);
+    const guardSession = await handleGuardSession({
+      cookies: cookieStore,
+      headers: request?.headers,
+    });
+    const sessionToken = guardSession.rotated
+      ? guardSession.newAccessToken
+      : cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+    const session = guardSession.authenticated
+      ? await getDashboardAuthSession(sessionToken)
+      : null;
+
     const requireLogin = settings.requireLogin !== false;
     const authMode = settings.authMode || "password";
     const ssoType = settings.ssoType || "oidc";
@@ -27,7 +38,7 @@ export async function GET() {
 
     const loginMethod = session?.saml ? "SAML" : session?.oidc ? "OIDC" : "Password";
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       requireLogin,
       authMode,
       ssoType,
@@ -46,6 +57,13 @@ export async function GET() {
       samlEmail: samlEmail || null,
       samlLogin: !!session?.saml,
     });
+
+    if (guardSession.rotated && guardSession.cookieOptions) {
+      response.cookies.set(ACCESS_TOKEN_COOKIE, guardSession.newAccessToken, guardSession.cookieOptions.access);
+      response.cookies.set(REFRESH_TOKEN_COOKIE, guardSession.newRefreshToken, guardSession.cookieOptions.refresh);
+    }
+
+    return response;
   } catch {
     return NextResponse.json({
       requireLogin: true,

@@ -22,6 +22,10 @@ function loadJwtSecret() {
 
 const SECRET = new TextEncoder().encode(loadJwtSecret());
 
+export function getJwtSecret() {
+  return SECRET;
+}
+
 export function shouldUseSecureCookie(request) {
   const forceSecureCookie = process.env.AUTH_COOKIE_SECURE === "true";
   const forwardedProto = request?.headers?.get?.("x-forwarded-proto");
@@ -30,7 +34,8 @@ export function shouldUseSecureCookie(request) {
 }
 
 export async function createDashboardAuthToken(claims = {}) {
-  return new SignJWT({ authenticated: true, ...claims })
+  const { authenticated, token_type, ...restClaims } = claims;
+  return new SignJWT({ authenticated: true, ...restClaims, token_type: "access" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
@@ -40,7 +45,10 @@ export async function createDashboardAuthToken(claims = {}) {
 export async function verifyDashboardAuthToken(token) {
   if (!token) return false;
   try {
-    await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, SECRET);
+    if (payload.token_type && payload.token_type !== "access") {
+      return false;
+    }
     return true;
   } catch {
     return false;
@@ -51,6 +59,9 @@ export async function getDashboardAuthSession(token) {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, SECRET);
+    if (payload.token_type && payload.token_type !== "access") {
+      return null;
+    }
     return payload;
   } catch {
     return null;
@@ -59,6 +70,7 @@ export async function getDashboardAuthSession(token) {
 
 export async function setDashboardAuthCookie(cookieStore, request, claims = {}) {
   const token = await createDashboardAuthToken(claims);
+  cookieStore.delete("refresh_token");
   cookieStore.set("auth_token", token, {
     httpOnly: true,
     secure: shouldUseSecureCookie(request),
@@ -69,6 +81,7 @@ export async function setDashboardAuthCookie(cookieStore, request, claims = {}) 
 
 export function clearDashboardAuthCookie(cookieStore) {
   cookieStore.delete("auth_token");
+  cookieStore.delete("refresh_token");
 }
 
 // Verify the current dashboard password (re-auth for sensitive actions).
