@@ -20,6 +20,7 @@ export const QUOTA_SORT_OPTIONS = [
   { value: "remaining-asc", label: "% quota: low to high" },
   { value: "remaining-desc", label: "% quota: high to low" },
 ];
+export const QUOTA_CARDS_ORDER_STORAGE_KEY = "quotaCardsCustomOrder";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 export function getConnectionLabel(connection) {
@@ -47,12 +48,105 @@ function groupByProviderStable(connections) {
   return Array.from(seen.values()).flat();
 }
 
+export function applyCustomCardOrder(connections = [], customOrder = []) {
+  if (!Array.isArray(connections) || connections.length === 0) return [];
+  if (!Array.isArray(customOrder) || customOrder.length === 0) {
+    return groupByProviderStable(connections);
+  }
+
+  const connMap = new Map();
+  connections.forEach((conn) => {
+    if (conn && conn.id) {
+      connMap.set(String(conn.id), conn);
+    }
+  });
+
+  const ordered = [];
+  const placedIds = new Set();
+
+  customOrder.forEach((id) => {
+    const stringId = String(id);
+    if (connMap.has(stringId) && !placedIds.has(stringId)) {
+      ordered.push(connMap.get(stringId));
+      placedIds.add(stringId);
+    }
+  });
+
+  // Append new or unranked connections grouped by provider
+  const remaining = connections.filter((conn) => !placedIds.has(String(conn.id)));
+  if (remaining.length > 0) {
+    ordered.push(...groupByProviderStable(remaining));
+  }
+
+  return ordered;
+}
+
+export function getCustomCardOrder() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(QUOTA_CARDS_ORDER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch (err) {
+    console.error("Error reading custom card order:", err);
+    return [];
+  }
+}
+
+export function setCustomCardOrder(order = []) {
+  if (typeof window === "undefined") return;
+  try {
+    const cleanOrder = Array.isArray(order) ? order.map(String) : [];
+    window.localStorage.setItem(
+      QUOTA_CARDS_ORDER_STORAGE_KEY,
+      JSON.stringify(cleanOrder),
+    );
+  } catch (err) {
+    console.error("Error saving custom card order:", err);
+  }
+}
+
+export function updateCustomCardOrderList(existingOrder = [], reorderedCurrentPageIds = [], allAvailableIds = null) {
+  const currentSet = new Set(reorderedCurrentPageIds.map(String));
+  const nextOrder = [];
+  let insertedPageSlice = false;
+
+  for (const id of existingOrder) {
+    const stringId = String(id);
+    if (currentSet.has(stringId)) {
+      if (!insertedPageSlice) {
+        nextOrder.push(...reorderedCurrentPageIds.map(String));
+        insertedPageSlice = true;
+      }
+    } else {
+      nextOrder.push(stringId);
+    }
+  }
+
+  if (!insertedPageSlice) {
+    nextOrder.push(...reorderedCurrentPageIds.map(String));
+  }
+
+  // Deduplicate preserving order
+  const uniqueOrder = Array.from(new Set(nextOrder));
+
+  // Only prune if allAvailableIds is explicitly passed as a valid array
+  if (Array.isArray(allAvailableIds) && allAvailableIds.length > 0) {
+    const validSet = new Set(allAvailableIds.map(String));
+    return uniqueOrder.filter((id) => validSet.has(id));
+  }
+
+  return uniqueOrder;
+}
+
 export function sortVisibleConnections(
   connections,
   quotaData,
   expiringFirst,
   providerFilter,
   quotaSortMode,
+  customOrder = [],
 ) {
   if (providerFilter === "codex" && quotaSortMode !== "default") {
     return [...connections].sort((a, b) => {
@@ -69,29 +163,31 @@ export function sortVisibleConnections(
     });
   }
 
-  if (!expiringFirst) return groupByProviderStable(connections);
+  if (expiringFirst) {
+    const getEarliestResetTime = (connection) => {
+      const resetTimes = (quotaData[connection.id]?.quotas || [])
+        .map((quota) =>
+          quota.resetAt
+            ? new Date(quota.resetAt).getTime()
+            : Number.POSITIVE_INFINITY,
+        )
+        .filter((time) => Number.isFinite(time));
+      return resetTimes.length > 0
+        ? Math.min(...resetTimes)
+        : Number.POSITIVE_INFINITY;
+    };
 
-  const getEarliestResetTime = (connection) => {
-    const resetTimes = (quotaData[connection.id]?.quotas || [])
-      .map((quota) =>
-        quota.resetAt
-          ? new Date(quota.resetAt).getTime()
-          : Number.POSITIVE_INFINITY,
-      )
-      .filter((time) => Number.isFinite(time));
-    return resetTimes.length > 0
-      ? Math.min(...resetTimes)
-      : Number.POSITIVE_INFINITY;
-  };
+    return [...connections].sort((a, b) => {
+      const expiryDiff = getEarliestResetTime(a) - getEarliestResetTime(b);
+      if (expiryDiff !== 0) return expiryDiff;
+      return (
+        (a.provider || "").localeCompare(b.provider || "") ||
+        (getConnectionLabel(a) || "").localeCompare(getConnectionLabel(b) || "")
+      );
+    });
+  }
 
-  return [...connections].sort((a, b) => {
-    const expiryDiff = getEarliestResetTime(a) - getEarliestResetTime(b);
-    if (expiryDiff !== 0) return expiryDiff;
-    return (
-      (a.provider || "").localeCompare(b.provider || "") ||
-      (getConnectionLabel(a) || "").localeCompare(getConnectionLabel(b) || "")
-    );
-  });
+  return applyCustomCardOrder(connections, customOrder);
 }
 
 export function buildLoadingState(connections) {

@@ -947,14 +947,15 @@ export default function ProviderDetailPage() {
       {connections
         .map((conn, index) => (
           <div key={conn.id} className="flex min-w-0 items-stretch">
-            <div className="flex shrink-0 items-center pl-1 sm:pl-2">
+            <label className="flex shrink-0 cursor-pointer items-center px-2 sm:px-3">
               <input
                 type="checkbox"
                 checked={isSelected(conn.id)}
                 onChange={() => toggleSelectConnection(conn.id)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="size-4"
+                aria-label={`Select ${conn.name || conn.email || "connection"}`}
               />
-            </div>
+            </label>
             <div className="flex-1 min-w-0">
               <ConnectionRow
                 connection={conn}
@@ -1567,14 +1568,14 @@ export default function ProviderDetailPage() {
               )}
               {connections.length > 0 && (
                 <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-xs font-medium text-text-muted transition-colors hover:text-text-main select-none">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAllConnections}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="size-4"
                     />
-                    Select All
+                    <span>Select All</span>
                   </label>
                 </div>
               )}

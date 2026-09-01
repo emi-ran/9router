@@ -8,6 +8,8 @@ import CooldownTimer from "./CooldownTimer";
 
 export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showMobileProxyOptions, setShowMobileProxyOptions] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
   const proxyDropdownRef = useRef(null);
 
@@ -49,15 +51,17 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    if (!showProxyDropdown) return;
+    if (!showProxyDropdown && !showMobileActions) return;
     const handler = (e) => {
       if (proxyDropdownRef.current && !proxyDropdownRef.current.contains(e.target)) {
         setShowProxyDropdown(false);
+        setShowMobileActions(false);
+        setShowMobileProxyOptions(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showProxyDropdown]);
+  }, [showProxyDropdown, showMobileActions]);
 
   const handleSelectProxy = async (poolId) => {
     setUpdatingProxy(true);
@@ -66,13 +70,14 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     } finally {
       setUpdatingProxy(false);
       setShowProxyDropdown(false);
+      setShowMobileActions(false);
+      setShowMobileProxyOptions(false);
     }
   };
 
   const rowAuthType = connection.authType || (isOAuth ? "oauth" : "apikey");
   const isOAuthConnection = rowAuthType === "oauth";
   const isCookieConnection = rowAuthType === "cookie";
-  const authIcon = isCookieConnection ? "cookie" : isOAuthConnection ? "lock" : "key";
   const authLabel = isOAuthConnection ? "OAuth" : isCookieConnection ? "Cookie" : "API Key";
   const displayName = connection.name?.trim()
     || connection.email?.trim()
@@ -136,10 +141,10 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
   };
 
   return (
-    <div className={`group flex min-w-0 flex-col gap-3 rounded-lg p-2 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
-      <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+    <div className={`group relative flex min-w-0 flex-col gap-3 rounded-lg p-2 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
+      <div className="flex min-w-0 flex-1 items-start gap-2 pr-[76px] sm:items-center sm:gap-3 sm:pr-48">
         {/* Priority arrows */}
-        <div className="flex shrink-0 flex-col">
+        <div className="hidden shrink-0 flex-col sm:flex">
           <button
             onClick={onMoveUp}
             disabled={isFirst}
@@ -155,9 +160,6 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
           </button>
         </div>
-        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">
-          {authIcon}
-        </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
           {secondaryDisplayName && (
@@ -210,20 +212,20 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           )}
         </div>
       </div>
-      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-        <div className="grid flex-1 grid-cols-3 gap-1 sm:flex sm:flex-none">
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2" ref={proxyDropdownRef}>
+        <div className="hidden sm:flex sm:flex-none sm:gap-1">
           {/* Proxy button with inline dropdown */}
           {(proxyPools || []).length > 0 && (
-            <div className="relative" ref={proxyDropdownRef}>
+            <div className="relative">
               <button
                 onClick={() => setShowProxyDropdown((v) => !v)}
-                className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
+                title="Proxy"
+                className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
                 disabled={updatingProxy}
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {updatingProxy ? "progress_activity" : "lan"}
                 </span>
-                <span className="text-[10px] leading-tight">Proxy</span>
               </button>
               {showProxyDropdown && (
                 <div className="absolute right-0 top-full z-50 mt-1 max-w-[78vw] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
@@ -250,28 +252,154 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <Tooltip text={autoPingTooltip}>
               <button
                 onClick={() => autoPing.onToggle(!autoPing.on)}
-                className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${autoPing.on ? "text-primary" : "text-text-muted hover:text-primary"}`}
+                title="Toggle auto-ping"
+                className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${autoPing.on ? "text-primary" : "text-text-muted hover:text-primary"}`}
               >
                 <span className="material-symbols-outlined text-[18px]">bolt</span>
-                <span className="text-[10px] leading-tight">Auto-ping</span>
               </button>
             </Tooltip>
           )}
-          <button onClick={onEdit} className="flex flex-col items-center rounded px-2 py-1 text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
+          <button onClick={onEdit} title="Edit connection" className="flex size-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
             <span className="material-symbols-outlined text-[18px]">edit</span>
-            <span className="text-[10px] leading-tight">Edit</span>
           </button>
-          <button onClick={onDelete} className="flex flex-col items-center rounded px-2 py-1 text-red-500 hover:bg-red-500/10">
-            <span className="material-symbols-outlined text-[18px]">delete</span>
-            <span className="text-[10px] leading-tight">Delete</span>
+          <button onClick={onDelete} title="Delete connection" className="flex size-8 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-500/10">
+            <span className="material-symbols-outlined text-[18px] leading-none">delete</span>
           </button>
         </div>
         <Toggle
           size="sm"
+          variant="connection"
+          className="h-8"
           checked={connection.isActive ?? true}
           onChange={onToggleActive}
           title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
         />
+        <div className="relative sm:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              setShowMobileActions((visible) => !visible);
+              setShowMobileProxyOptions(false);
+            }}
+            aria-label="More connection actions"
+            aria-expanded={showMobileActions}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <span className="material-symbols-outlined text-[19px]">more_vert</span>
+          </button>
+          {showMobileActions && (
+            <div className="absolute right-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-xl ring-1 ring-black/10 dark:ring-white/10">
+              {showMobileProxyOptions ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileProxyOptions(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-text-primary transition-colors hover:bg-surface-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">arrow_back</span>
+                    <span>Choose proxy</span>
+                  </button>
+                  <div className="my-1 h-px bg-border-subtle" />
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProxy("__none__")}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface-2 ${!boundProxyPoolId ? "text-primary" : "text-text-primary"}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">link_off</span>
+                    <span>None</span>
+                  </button>
+                  <div className="max-h-[min(50vh,18rem)] overflow-y-auto">
+                    {(proxyPools || []).map((pool) => (
+                      <button
+                        type="button"
+                        key={pool.id}
+                        onClick={() => handleSelectProxy(pool.id)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface-2 ${boundProxyPoolId === pool.id ? "text-primary" : "text-text-primary"}`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">lan</span>
+                        <span className="truncate">{pool.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveUp();
+                      setShowMobileActions(false);
+                    }}
+                    disabled={isFirst}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">arrow_upward</span>
+                    <span>Move earlier</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveDown();
+                      setShowMobileActions(false);
+                    }}
+                    disabled={isLast}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">arrow_downward</span>
+                    <span>Move later</span>
+                  </button>
+                  <div className="my-1 h-px bg-border-subtle" />
+                  {(proxyPools || []).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileProxyOptions(true)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface-2 ${hasAnyProxy ? "text-primary" : "text-text-primary"}`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">lan</span>
+                      <span className="min-w-0 flex-1 truncate">{boundProxyPool?.name || "Proxy"}</span>
+                      <span className="material-symbols-outlined text-[16px] text-text-muted">chevron_right</span>
+                    </button>
+                  )}
+              {autoPing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    autoPing.onToggle(!autoPing.on);
+                    setShowMobileActions(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface-2 ${autoPing.on ? "text-amber-500" : "text-text-primary"}`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">bolt</span>
+                  <span>{autoPing.on ? "Auto-ping on" : "Auto-ping off"}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onEdit();
+                  setShowMobileActions(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-text-primary transition-colors hover:bg-surface-2"
+              >
+                <span className="material-symbols-outlined text-[16px] text-text-muted">edit</span>
+                <span>Edit connection</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete();
+                  setShowMobileActions(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-rose-500 transition-colors hover:bg-rose-500/10"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+                <span>Delete connection</span>
+              </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

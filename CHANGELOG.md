@@ -1,3 +1,11 @@
+# Unreleased
+
+## Dashboard
+- **Quota Tracker**: improve provider and account filtering controls, including explicit empty and available quota filters, compact provider/account selectors, auto-refresh toggle, refresh action, and saved card ordering.
+- **Quota Tracker**: keep toolbar controls from collapsing into the section title on narrow layouts; use separate title and control rows with stable control sizing and horizontal overflow where needed.
+- **Dashboard controls**: standardize checkbox, radio, toggle, select, API key action, OAuth modal, and quota reset modal styling and accessibility behavior.
+- **Combos**: improve strategy selection and model action control alignment.
+
 # v0.5.59 (2026-08-29)
 
 ## Features

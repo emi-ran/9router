@@ -182,55 +182,69 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
 
   return (
     <Modal isOpen={isOpen} title="Edit Connection" onClose={onClose}>
-      <div className="flex flex-col gap-4">
-        <Input
-          label="Name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder={isOAuth ? "Account name" : "Production Key"}
-        />
-        {isOAuth && connection.email && (
-          <div className="bg-sidebar/50 p-3 rounded-lg">
-            <p className="text-sm text-text-muted mb-1">Email</p>
-            <p className="font-medium">{connection.email}</p>
+      <div className="flex flex-col gap-4 text-text-main">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
+            <Input
+              label="Connection Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder={isOAuth ? "Account name" : "Production Key"}
+              hint="Custom display alias for this connection"
+            />
+            {isOAuth && connection.email && (
+              <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-text-muted">
+                <span className="material-symbols-outlined text-[14px] text-primary">account_circle</span>
+                <span className="truncate" title={connection.email}>OAuth account · {connection.email}</span>
+              </p>
+            )}
           </div>
-        )}
-        <Input
-          label="Priority"
-          type="number"
-          value={formData.priority}
-          onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value, 10) || 1 })}
-        />
+          <div>
+            <Input
+              label="Priority"
+              type="number"
+              min={1}
+              value={formData.priority}
+              onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value, 10) || 1 })}
+              hint="Routing order (1 = highest)"
+            />
+          </div>
+        </div>
 
         {!isOAuth && (
-          <>
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-2 rounded-xl border border-border/80 bg-surface-2/30 p-3.5">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
               <Input
                 label="API Key"
                 type="password"
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                 placeholder="Enter new API key"
-                hint="Leave blank to keep the current API key."
-                className="flex-1"
+                hint="Leave blank to keep current key."
+                className="flex-1 min-w-0"
               />
-              <div className="pt-6">
-                <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-                  {validating ? "Checking..." : "Check"}
-                </Button>
-              </div>
+              <Button
+                onClick={handleValidate}
+                disabled={!formData.apiKey || validating || saving}
+                variant="secondary"
+                className="h-[42px] shrink-0 mt-1 sm:mt-0"
+              >
+                {validating ? "Checking..." : "Check"}
+              </Button>
             </div>
             {validationResult && (
-              <Badge variant={validationResult === "success" ? "success" : "error"}>
-                {validationResult === "success" ? "Valid" : "Invalid"}
-              </Badge>
+              <div className="pt-1">
+                <Badge variant={validationResult === "success" ? "success" : "error"}>
+                  {validationResult === "success" ? "Valid API Key" : "Invalid API Key"}
+                </Badge>
+              </div>
             )}
-          </>
+          </div>
         )}
 
         {isAzure && (
-          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
-            <h3 className="font-semibold mb-3 text-sm">Azure OpenAI Configuration</h3>
+          <div className="bg-surface-2/50 p-4 rounded-xl border border-border">
+            <h3 className="font-semibold mb-3 text-sm text-text-main">Azure OpenAI Configuration</h3>
             <div className="flex flex-col gap-3">
               <Input
                 label="Azure Endpoint"
@@ -274,21 +288,24 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         )}
 
         {!isCompatible && !isAzure && !isCloudflareAi && (
-          <div className="flex items-center gap-3">
-            <Button onClick={handleTest} variant="secondary" disabled={testing}>
-              {testing ? "Testing..." : "Test Connection"}
-            </Button>
-            {testResult && (
-              <Badge variant={testResult === "success" ? "success" : "error"}>
-                {testResult === "success" ? "Valid" : "Failed"}
-              </Badge>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border border-border bg-surface-2/30">
+            <span className="text-xs text-text-muted">Test connection health</span>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleTest} variant="secondary" size="sm" disabled={testing}>
+                {testing ? "Testing..." : "Test Connection"}
+              </Button>
+              {testResult && (
+                <Badge variant={testResult === "success" ? "success" : "error"}>
+                  {testResult === "success" ? "Valid" : "Failed"}
+                </Badge>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Button onClick={handleSubmit} fullWidth disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle mt-1">
+          <Button onClick={onClose} variant="ghost" fullWidth disabled={saving}>Cancel</Button>
+          <Button onClick={handleSubmit} fullWidth loading={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
         </div>
       </div>
     </Modal>

@@ -2,12 +2,15 @@
 export { default as Button } from "./Button";
 export { default as Input } from "./Input";
 export { default as Select } from "./Select";
+export { default as CompactSelect } from "./CompactSelect";
 export { default as Card } from "./Card";
 export { default as Modal, ConfirmModal } from "./Modal";
 export { default as Loading, Spinner, PageLoading, Skeleton, CardSkeleton } from "./Loading";
 export { default as Avatar } from "./Avatar";
 export { default as Badge } from "./Badge";
 export { default as Toggle } from "./Toggle";
+export { default as Checkbox } from "./Checkbox";
+export { default as Radio } from "./Radio";
 export { default as ThemeToggle } from "./ThemeToggle";
 export { ThemeProvider } from "./ThemeProvider";
 export { default as Sidebar } from "./Sidebar";
