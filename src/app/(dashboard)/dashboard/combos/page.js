@@ -5,7 +5,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle } from "@/shared/components";
+import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, CompactSelect, Toggle } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
@@ -354,11 +354,11 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
           {/* Strategy selector — always visible */}
           <div className="w-full sm:w-[200px]">
-            <Select
+            <CompactSelect
               options={STRATEGY_OPTIONS}
               value={current}
-              onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
-              selectClassName="py-1.5 text-xs"
+              onChange={(value) => onSetStrategy({ fallbackStrategy: value })}
+              ariaLabel="Combo strategy"
             />
           </div>
 
@@ -489,17 +489,34 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                 models.slice(0, 3).map((model, index) => (
                   <code
                     key={`${model}-${index}`}
-                    className="group/chip inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5"
+                    className="inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface-2 px-1.5 py-1 font-mono text-xs text-text-muted shadow-[var(--shadow-soft)]"
                   >
                     <span>{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
-                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move ${model} earlier`}
+                      className={`flex size-5 items-center justify-center rounded transition-colors ${index === 0 ? "cursor-not-allowed text-text-muted/35" : "text-text-muted hover:bg-primary/10 hover:text-primary"}`}
+                    >
                       <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
                     </button>
-                    <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(index, 1)}
+                      disabled={index === models.length - 1}
+                      aria-label={`Move ${model} later`}
+                      className={`flex size-5 items-center justify-center rounded transition-colors ${index === models.length - 1 ? "cursor-not-allowed text-text-muted/35" : "text-text-muted hover:bg-primary/10 hover:text-primary"}`}
+                    >
                       <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
                     </button>
-                    <button onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-text-muted hover:text-red-500">
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(index)}
+                      aria-label={`Remove ${model}`}
+                      className="flex size-5 items-center justify-center rounded text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-500"
+                    >
                       <span className="material-symbols-outlined text-[12px]">close</span>
                     </button>
                   </code>

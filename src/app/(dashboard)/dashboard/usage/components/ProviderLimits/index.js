@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   closestCenter,
@@ -19,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ProviderIcon from "@/shared/components/ProviderIcon";
+import CompactSelect from "@/shared/components/CompactSelect";
 import QuotaTable from "./QuotaTable";
 import Toggle from "@/shared/components/Toggle";
 import Tooltip from "@/shared/components/Tooltip";
@@ -266,9 +268,9 @@ function SortableCard({
         </div>
 
         {/* Header Actions - Desktop */}
-        <div className="hidden sm:flex items-center gap-1 shrink-0">
+        <div className="hidden items-center gap-3 shrink-0 pr-1 sm:flex">
           {isCodex && (
-            <div className="flex items-center rounded-lg border border-border-subtle bg-surface-2/60 p-0.5 mr-0.5">
+            <div className="flex items-center rounded-full border border-border-subtle bg-surface-2/60 px-1.5 py-0.5">
               <Tooltip
                 text={
                   resetCreditCount > 0
@@ -285,7 +287,7 @@ function SortableCard({
                       ? `Use one Codex reset credit. ${resetCreditCount} available.`
                       : "No Codex reset credits available"
                   }
-                  className={`flex h-7 items-center justify-center gap-1 rounded-md px-1.5 text-[11px] font-medium tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                   className={`flex h-7 items-center justify-center gap-1 rounded-full px-1.5 text-[11px] font-medium tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     resetCreditCount > 0
                       ? "text-primary hover:bg-primary/10"
                       : "text-text-muted"
@@ -303,7 +305,7 @@ function SortableCard({
                   onClick={() => onViewCodexResetCredits(conn)}
                   disabled={isLoading || rowBusy}
                   aria-label="View Codex reset credit expiry"
-                  className="flex h-7 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                   className="flex h-7 w-6 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[14px]">schedule</span>
                 </button>
@@ -317,7 +319,7 @@ function SortableCard({
                 type="button"
                 onClick={() => onToggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
                 aria-label="Toggle auto-ping"
-                className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 ${autoPingMaps[conn.provider]?.[conn.id] === true ? "text-amber-500 bg-amber-500/10" : "text-text-muted"}`}
+                className={`flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-text-muted transition-[background-color,border-color,color,opacity] hover:bg-surface-2 hover:text-text-primary ${autoPingMaps[conn.provider]?.[conn.id] === true ? "border-amber-500/30 bg-amber-500/10 text-amber-500" : "opacity-75"}`}
               >
                 <span className="material-symbols-outlined text-[16px]">bolt</span>
               </button>
@@ -330,7 +332,7 @@ function SortableCard({
               onClick={() => onRefreshProvider(conn.id, conn.provider)}
               disabled={isLoading || rowBusy}
               aria-label="Refresh quota"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary disabled:opacity-50"
+              className="flex h-7 w-7 scale-90 items-center justify-center rounded-lg text-text-muted opacity-80 transition-[background-color,color,opacity,transform] hover:scale-100 hover:bg-surface-2 hover:text-text-primary hover:opacity-100 disabled:opacity-50"
             >
               <span
                 className={`material-symbols-outlined text-[16px] ${isLoading ? "animate-spin text-primary" : ""}`}
@@ -346,7 +348,7 @@ function SortableCard({
               onClick={() => onSelectEdit(conn)}
               disabled={rowBusy}
               aria-label="Edit connection"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary disabled:opacity-50"
+              className="flex h-7 w-7 scale-90 items-center justify-center rounded-lg text-text-muted opacity-80 transition-[background-color,color,opacity,transform] hover:scale-100 hover:bg-surface-2 hover:text-text-primary hover:opacity-100 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]">
                 edit
@@ -360,7 +362,7 @@ function SortableCard({
               onClick={() => onDeleteConnection(conn.id)}
               disabled={rowBusy}
               aria-label="Delete connection"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
+              className="flex h-7 w-7 scale-90 items-center justify-center rounded-lg text-text-muted opacity-80 transition-[background-color,color,opacity,transform] hover:scale-100 hover:bg-rose-500/10 hover:text-rose-500 hover:opacity-100 disabled:opacity-50"
             >
               <span
                 className={`material-symbols-outlined text-[16px] ${rowBusy ? "animate-pulse" : ""}`}
@@ -371,7 +373,7 @@ function SortableCard({
           </Tooltip>
 
           <div
-            className="inline-flex items-center pl-1 border-l border-border-subtle ml-0.5"
+            className="inline-flex h-8 items-center border-l border-border-subtle pl-3"
             title={
               (conn.isActive ?? true)
                 ? "Disable connection"
@@ -1499,8 +1501,8 @@ export default function ProviderLimits() {
   return (
     <div className="space-y-6">
       {/* Header Controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface/50 px-3 py-2.5 sm:px-3.5">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="text-sm font-semibold text-text-primary">
             Quota Accounts
           </span>
@@ -1509,8 +1511,8 @@ export default function ProviderLimits() {
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-          <div className="relative">
+        <div className="flex min-w-0 max-w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setProviderMenuOpen((prev) => !prev)}
@@ -1618,7 +1620,7 @@ export default function ProviderLimits() {
               }
               setAccountFilter(nextValue);
             }}
-            className="h-8 rounded-lg border border-border-subtle bg-surface px-2 text-xs font-medium text-text-primary outline-none transition-colors hover:bg-surface-2 hover:border-border"
+            className="h-8 shrink-0 rounded-lg border border-border-subtle bg-surface px-2 text-xs font-medium text-text-primary outline-none transition-colors hover:bg-surface-2 hover:border-border"
             aria-label="Filter accounts by status"
           >
             {ACCOUNT_FILTER_OPTIONS.map((option) => (
@@ -1632,7 +1634,7 @@ export default function ProviderLimits() {
             <select
               value={quotaSortMode}
               onChange={(event) => setQuotaSortMode(event.target.value)}
-              className="h-8 rounded-lg border border-border-subtle bg-surface px-2 text-xs font-medium text-text-primary outline-none transition-colors hover:bg-surface-2 hover:border-border"
+              className="h-8 shrink-0 rounded-lg border border-border-subtle bg-surface px-2 text-xs font-medium text-text-primary outline-none transition-colors hover:bg-surface-2 hover:border-border"
               aria-label="Sort Codex quotas by remaining"
             >
               {QUOTA_SORT_OPTIONS.map((option) => (
@@ -1728,7 +1730,7 @@ export default function ProviderLimits() {
             type="button"
             onClick={() => refreshAll(true)}
             disabled={refreshingAll}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary disabled:opacity-50"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface text-text-muted shadow-[var(--shadow-soft)] transition-[background-color,color,border-color,transform] hover:-translate-y-px hover:bg-surface-2 hover:text-text-primary hover:border-border disabled:opacity-50"
             title="Refresh all"
           >
             <span
@@ -1742,7 +1744,7 @@ export default function ProviderLimits() {
 
       {/* Provider cards: 2 columns, compact */}
       {expiringFirst && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
           Expiring-first sort is active. Card dragging is disabled while semantic expiry sorting is enabled.
         </div>
       )}
@@ -1828,10 +1830,9 @@ export default function ProviderLimits() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-text-muted">{connectionsPageSummary}</span>
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <CompactSelect
               value={isCustomPageSize ? "custom" : String(pageSize)}
-              onChange={(event) => {
-                const nextValue = event.target.value;
+              onChange={(nextValue) => {
                 if (nextValue === "custom") return;
                 const nextPageSize = Number.parseInt(nextValue, 10);
                 if (Number.isFinite(nextPageSize)) {
@@ -1840,16 +1841,14 @@ export default function ProviderLimits() {
                   setCustomPageSizeInput(String(nextPageSize));
                 }
               }}
-              className="h-8 rounded-lg border border-border-subtle bg-surface px-2 text-xs font-medium text-text-primary outline-none transition-colors hover:bg-surface-2 hover:border-border"
-              aria-label="Accounts per page"
-            >
-              {ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={String(option)}>
-                  {option} / page
-                </option>
-              ))}
-              <option value="custom">Custom</option>
-            </select>
+              options={[
+                ...ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => ({ value: String(option), label: `${option} / page` })),
+                { value: "custom", label: "Custom" },
+              ]}
+              ariaLabel="Accounts per page"
+              className="w-[122px]"
+              openUp
+            />
             <input
               type="number"
               min="1"
@@ -1966,12 +1965,12 @@ export default function ProviderLimits() {
         loading={Boolean(resettingLimitId)}
       />
 
-      {resetCreditsState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      {resetCreditsState && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 px-4 py-4 sm:px-6 sm:py-6" role="dialog" aria-modal="true" aria-labelledby="codex-reset-credit-expiry-title">
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border-subtle bg-surface-2/40 px-4 py-3">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-text-primary">Codex Reset Credit Expiry</h3>
+                <h3 id="codex-reset-credit-expiry-title" className="text-sm font-semibold text-text-primary">Codex Reset Credit Expiry</h3>
                 <p className="mt-0.5 truncate text-xs text-text-muted">
                   {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
                 </p>
@@ -2036,7 +2035,8 @@ export default function ProviderLimits() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <EditConnectionModal

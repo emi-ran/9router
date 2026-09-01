@@ -183,22 +183,6 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   return (
     <Modal isOpen={isOpen} title="Edit Connection" onClose={onClose}>
       <div className="flex flex-col gap-4 text-text-main">
-        {/* Connection identity header / read-only info */}
-        {isOAuth && connection.email && (
-          <div className="rounded-xl border border-border bg-surface-2/60 p-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[18px]">account_circle</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted block">Connected Account (Read-only)</span>
-              <p className="text-sm font-medium text-text-main truncate" title={connection.email}>
-                {connection.email}
-              </p>
-            </div>
-            <Badge variant="default" className="text-[10px] shrink-0 font-mono">OAuth</Badge>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
             <Input
@@ -208,6 +192,12 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
               placeholder={isOAuth ? "Account name" : "Production Key"}
               hint="Custom display alias for this connection"
             />
+            {isOAuth && connection.email && (
+              <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-text-muted">
+                <span className="material-symbols-outlined text-[14px] text-primary">account_circle</span>
+                <span className="truncate" title={connection.email}>OAuth account · {connection.email}</span>
+              </p>
+            )}
           </div>
           <div>
             <Input
