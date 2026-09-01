@@ -218,9 +218,121 @@ body {
   color: var(--color-brand-300);
 }
 
-/* iOS keyboard accent */
+/* ============================================================
+   9Router Form Controls — Checkbox, Radio & Inputs
+   Consistent dark coral theme (#E56A4A) with accessible states
+   ============================================================ */
 input, textarea {
   accent-color: var(--color-primary);
+}
+
+input[type="checkbox"]:not(.sr-only),
+input[type="radio"]:not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  vertical-align: middle;
+  background-color: var(--color-surface);
+  border: 1.5px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    box-shadow 0.15s ease-out,
+    transform 0.1s ease-out;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.dark input[type="checkbox"]:not(.sr-only),
+.dark input[type="radio"]:not(.sr-only) {
+  background-color: #242426;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Hover state */
+input[type="checkbox"]:not(.sr-only):not(:disabled):hover,
+input[type="radio"]:not(.sr-only):not(:disabled):hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-bg-alt);
+}
+.dark input[type="checkbox"]:not(.sr-only):not(:disabled):hover,
+.dark input[type="radio"]:not(.sr-only):not(:disabled):hover {
+  border-color: var(--color-brand-400);
+  background-color: #2d2d30;
+}
+
+/* Active micro-press */
+input[type="checkbox"]:not(.sr-only):not(:disabled):active,
+input[type="radio"]:not(.sr-only):not(:disabled):active {
+  transform: scale(0.92);
+}
+
+/* Checked state — Coral background + warm glow */
+input[type="checkbox"]:not(.sr-only):checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6.5-6.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 85% 85%;
+  box-shadow: 0 1px 4px rgba(229, 106, 74, 0.35);
+}
+
+input[type="checkbox"]:not(.sr-only):checked:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* Indeterminate state */
+input[type="checkbox"]:not(.sr-only):indeterminate {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M3.5 8h9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 85% 85%;
+}
+
+/* Radio button specific styles */
+input[type="radio"]:not(.sr-only) {
+  border-radius: 9999px;
+}
+
+input[type="radio"]:not(.sr-only):checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Ccircle cx='8' cy='8' r='3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  box-shadow: 0 1px 4px rgba(229, 106, 74, 0.35);
+}
+
+input[type="radio"]:not(.sr-only):checked:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+/* Accessible focus ring (2-layer ring for high contrast) */
+input[type="checkbox"]:not(.sr-only):focus-visible,
+input[type="radio"]:not(.sr-only):focus-visible {
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px rgba(229, 106, 74, 0.45) !important;
+}
+
+/* Disabled states */
+input[type="checkbox"]:not(.sr-only):disabled,
+input[type="radio"]:not(.sr-only):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(30%);
 }
 
 /* Scrollbar (custom-scrollbar utility kept for compat) */
