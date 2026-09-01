@@ -7,28 +7,28 @@ import { formatResetTime } from "./utils";
 const getColorClasses = (remainingPercentage) => {
   if (remainingPercentage > 70) {
     return {
-      text: "text-green-500",
-      bg: "bg-green-500",
-      bgLight: "bg-green-500/10",
-      emoji: "🟢"
+      text: "text-emerald-500 dark:text-emerald-400",
+      bg: "bg-emerald-500 dark:bg-emerald-400",
+      bgLight: "bg-emerald-500/10",
+      dot: "bg-emerald-500",
     };
   }
-  
+
   if (remainingPercentage >= 30) {
     return {
-      text: "text-yellow-500",
-      bg: "bg-yellow-500",
-      bgLight: "bg-yellow-500/10",
-      emoji: "🟡"
+      text: "text-amber-500 dark:text-amber-400",
+      bg: "bg-amber-500 dark:bg-amber-400",
+      bgLight: "bg-amber-500/10",
+      dot: "bg-amber-500",
     };
   }
-  
+
   // 0-29% including 0% (out of quota) - show red
   return {
-    text: "text-red-500",
-    bg: "bg-red-500",
-    bgLight: "bg-red-500/10",
-    emoji: "🔴"
+    text: "text-rose-500 dark:text-rose-400",
+    bg: "bg-rose-500 dark:bg-rose-400",
+    bgLight: "bg-rose-500/10",
+    dot: "bg-rose-500",
   };
 };
 
@@ -86,37 +86,38 @@ export default function QuotaProgressBar({
   return (
     <div className="space-y-2">
       {/* Label and percentage */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-semibold text-text-primary">
-          {label}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs">{colors.emoji}</span>
-          <span className={cn("font-medium", colors.text)}>
-            {remaining}%
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", colors.dot)} />
+          <span className="font-semibold text-text-primary truncate">
+            {label}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className={cn("font-semibold tabular-nums text-xs", colors.text)}>
+            {unlimited ? "Unlimited" : `${remaining}%`}
           </span>
         </div>
       </div>
 
       {/* Progress bar */}
       {!unlimited && (
-        <div className={cn("h-2 rounded-full overflow-hidden", colors.bgLight)}>
+        <div className="h-1.5 w-full rounded-full overflow-hidden bg-surface-3/80 dark:bg-neutral-800">
           <div
-            className={cn("h-full transition-all duration-300", colors.bg)}
+            className={cn("h-full transition-all duration-300 rounded-full", colors.bg)}
             style={{ width: `${Math.min(remaining, 100)}%` }}
           />
         </div>
       )}
 
       {/* Usage details and countdown */}
-      <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>
-          {used.toLocaleString()} / {total.toLocaleString()} requests
+      <div className="flex items-center justify-between text-[11px] text-text-muted tabular-nums">
+        <span className="font-mono text-[10.5px]">
+          {used.toLocaleString()} / {total.toLocaleString()}
         </span>
         {countdown !== "-" && (
           <div className="flex items-center gap-1">
-            <span>•</span>
-            <span className="font-medium">{resetWord} in {countdown}</span>
+            <span className="font-medium text-text-primary">{resetWord} in {countdown}</span>
           </div>
         )}
       </div>

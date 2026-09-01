@@ -152,13 +152,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4 py-8 sm:py-12 relative overflow-hidden">
       {/* Faint grid background */}
       <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
-          <p className="text-text-muted">
+      <div className="relative z-10 w-full max-w-md mx-auto">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center size-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)] mb-3 text-white">
+            <span className="material-symbols-outlined text-[26px]">hub</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-main mb-1.5">
+            Welcome to <span className="text-primary">9Router</span>
+          </h1>
+          <p className="text-sm text-text-muted max-w-xs mx-auto leading-relaxed">
             {samlAvailable
               ? "Sign in with SAML 2.0 Single Sign-On"
               : oidcAvailable
@@ -167,7 +172,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Card>
+        <Card className="shadow-[0_24px_72px_-24px_rgba(0,0,0,0.6)] border-border/80 rounded-2xl p-5 sm:p-7">
           {mustChange ? (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
               <p className="text-sm text-amber-600 dark:text-amber-400 text-center">

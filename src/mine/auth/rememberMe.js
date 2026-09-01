@@ -149,8 +149,8 @@ export async function setLoginCookies(cookieStore, request, secret, claims = {},
  * Clears both access and refresh auth cookies.
  */
 export function clearAllAuthCookies(cookieStore) {
-  cookieStore.delete(ACCESS_TOKEN_COOKIE);
-  cookieStore.delete(REFRESH_TOKEN_COOKIE);
+  cookieStore.delete({ name: ACCESS_TOKEN_COOKIE, path: "/" });
+  cookieStore.delete({ name: REFRESH_TOKEN_COOKIE, path: "/" });
 }
 
 /**

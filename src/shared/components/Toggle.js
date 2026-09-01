@@ -9,6 +9,7 @@ export default function Toggle({
   description,
   disabled = false,
   size = "md",
+  variant = "default",
   className,
 }) {
   const sizes = {
@@ -20,6 +21,8 @@ export default function Toggle({
   const handleClick = () => {
     if (!disabled && onChange) onChange(!checked);
   };
+
+  const isConnection = variant === "connection";
 
   return (
     <div
@@ -37,22 +40,32 @@ export default function Toggle({
         onClick={handleClick}
         className={cn(
           "relative inline-flex shrink-0 cursor-pointer rounded-full",
-          "transition-colors duration-200 ease-in-out",
-          "focus:outline-none focus:ring-2 focus:ring-brand-500/30",
-          checked ? "bg-brand-500" : "bg-surface-3",
+          "border transition-[background-color,border-color,box-shadow] duration-200 ease-out",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          isConnection
+            ? (checked
+              ? "border-primary bg-primary shadow-[var(--shadow-focus)]"
+              : "border-border-subtle bg-surface-3 hover:border-text-muted/60")
+            : (checked ? "border-brand-500 bg-brand-500" : "border-transparent bg-surface-3"),
           sizes[size].track,
           disabled && "cursor-not-allowed"
         )}
       >
         <span
           className={cn(
-            "pointer-events-none inline-block rounded-full bg-white shadow-sm",
-            "transform transition duration-200 ease-in-out",
+            "pointer-events-none inline-flex items-center justify-center rounded-full bg-white shadow-sm",
+            "transform transition-transform duration-200 ease-out",
             checked ? sizes[size].translate : "translate-x-0.5",
             sizes[size].thumb,
             "mt-0.5"
           )}
-        />
+          >
+            {isConnection && checked && (
+              <span className="material-symbols-outlined text-[10px] font-bold leading-none text-primary" aria-hidden="true">
+                check
+              </span>
+            )}
+          </span>
       </button>
       {(label || description) && (
         <div className="flex flex-col">

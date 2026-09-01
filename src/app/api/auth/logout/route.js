@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { clearDashboardAuthCookie } from "@/lib/auth/dashboardSession";
+import { clearAllAuthCookies } from "@/mine/auth/rememberMe";
 
 export async function POST() {
   const cookieStore = await cookies();
-  clearDashboardAuthCookie(cookieStore);
+  clearAllAuthCookies(cookieStore);
   cookieStore.delete("oidc_state");
   cookieStore.delete("oidc_nonce");
   cookieStore.delete("oidc_code_verifier");

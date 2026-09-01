@@ -164,7 +164,7 @@ select {
   --color-text-main: var(--color-text-main);
   --color-text-muted: var(--color-text-muted);
   --color-text-subtle: var(--color-text-subtle);
-  --color-accent: var(--color-brand-500);
+  --color-accent: rgb(237, 237, 237);
   --color-danger: var(--color-danger);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
@@ -461,16 +461,129 @@ button:disabled,
     radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.10) 0%, transparent 40%);
 }
 
-/* Landing-style faint grid overlay (use absolute pos inside relative parent) */
+/* Landing-style faint grid overlay with radial top accent */
 .landing-grid {
   background-image:
-    linear-gradient(to right, var(--color-accent) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-accent) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.08;
+    radial-gradient(circle at 50% 0%, rgba(237, 237, 237, 0.15) 0%, transparent 70%),
+    linear-gradient(to right, rgba(237, 237, 237, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(237, 237, 237, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  opacity: 0.3;
+  transform: translateZ(0);
 }
 .dark .landing-grid {
-  opacity: 0.04;
+  opacity: 0.3;
+}
+
+/* Dashboard shell: opaque, layered surfaces avoid backdrop-filter repaint cost. */
+.dashboard-shell {
+  background:
+    radial-gradient(circle at 74% -10%, rgba(237, 237, 237, 0.045), transparent 30%),
+    var(--color-bg);
+}
+
+.dashboard-sidebar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 241, 236, 0.96));
+  border-right: 1px solid rgba(10, 10, 10, 0.08);
+  box-shadow: 12px 0 32px -28px rgba(15, 15, 15, 0.35);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .dashboard-sidebar {
+  background: linear-gradient(180deg, #202020 0%, #191919 100%);
+  border-color: rgba(255, 255, 255, 0.065);
+  box-shadow: 14px 0 36px -30px rgba(0, 0, 0, 0.95);
+}
+
+.dashboard-header {
+  border-bottom: 1px solid var(--color-border-subtle);
+  background-color: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dashboard-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-nav-item:hover {
+  color: var(--color-text-main);
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.055);
+  transform: translateX(2px);
+}
+
+.dashboard-nav-item-active {
+  color: var(--color-primary);
+  background: linear-gradient(90deg, rgba(229, 106, 74, 0.16), rgba(229, 106, 74, 0.045));
+  border-color: rgba(229, 106, 74, 0.18);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.dashboard-nav-item-active:hover {
+  color: var(--color-primary);
+  background: linear-gradient(90deg, rgba(229, 106, 74, 0.2), rgba(229, 106, 74, 0.06));
+}
+
+.dashboard-nav-item-nested {
+  min-height: 2.125rem;
+  padding-left: 1rem;
+  font-size: 0.875rem;
+}
+
+.dashboard-nav-section-label {
+  margin: 0 0 0.5rem;
+  padding: 0.75rem 0.75rem 0;
+  color: var(--color-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Premium dashboard content container
+   GPU-accelerated rgba surfaces, 0.2s transitions, no backdrop-filter
+   ============================================================ */
+.dashboard-content {
+  background-color: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-brand-lg);
+  transform: translateZ(0);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dark .dashboard-content {
+  background-color: rgba(15, 15, 15, 0.8);
+  border-color: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 16px;
+}
+@media (min-width: 640px) {
+  .dark .dashboard-content {
+    border-radius: 20px;
+    padding: 24px;
+  }
+}
+@media (min-width: 1024px) {
+  .dark .dashboard-content {
+    border-radius: 24px;
+    padding: 32px 40px;
+  }
+}
+.dashboard-content:hover {
+  border-color: rgba(237, 237, 237, 0.1);
+  box-shadow: 0 0 0 1px rgba(237, 237, 237, 0.05);
+}
+.dark .dashboard-content:hover {
+  border-color: rgba(237, 237, 237, 0.15);
+  box-shadow: 0 0 0 1px rgba(237, 237, 237, 0.08), 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Topology: router card pulse (no flying rings) + electric edge beam */

@@ -301,4 +301,79 @@ describe("Remember Me Authentication Core", () => {
     expect(session.authenticated).toBe(false);
     expect(session.rotated).toBe(false);
   });
+
+  it("clears all auth cookies on logout", async () => {
+    const cookiesDeleted = [];
+    const mockCookieStore = {
+      delete(cookie) {
+        cookiesDeleted.push(cookie);
+      },
+    };
+
+    const { clearAllAuthCookies } = await import("../../src/mine/auth/rememberMe.js");
+    clearAllAuthCookies(mockCookieStore);
+    expect(cookiesDeleted).toEqual([
+      { name: ACCESS_TOKEN_COOKIE, path: "/" },
+      { name: REFRESH_TOKEN_COOKIE, path: "/" },
+    ]);
+  });
+
+  it("end-to-end cookie jar lifecycle: remember-me login sets both tokens, logout revokes both", async () => {
+    const cookieJar = new Map();
+    const mockCookieStore = {
+      get: (name) => {
+        const val = cookieJar.get(name);
+        return val !== undefined ? { name, value: val } : undefined;
+      },
+      set: (name, value, options) => {
+        cookieJar.set(name, { value, options });
+      },
+      delete: (cookie) => {
+        const name = typeof cookie === "string" ? cookie : cookie.name;
+        cookieJar.delete(name);
+      },
+    };
+
+    // 1. Initial login with rememberMe = true
+    await setLoginCookies(mockCookieStore, {}, TEST_SECRET, { userId: "user-test" }, true);
+    expect(cookieJar.has(ACCESS_TOKEN_COOKIE)).toBe(true);
+    expect(cookieJar.has(REFRESH_TOKEN_COOKIE)).toBe(true);
+
+    const accessEntry = cookieJar.get(ACCESS_TOKEN_COOKIE);
+    const refreshEntry = cookieJar.get(REFRESH_TOKEN_COOKIE);
+    expect(accessEntry.options.path).toBe("/");
+    expect(refreshEntry.options.path).toBe("/");
+
+    // 2. Guard session authenticates
+    const mockReq = {
+      cookies: {
+        get: (name) => {
+          const entry = cookieJar.get(name);
+          return entry ? { value: entry.value } : undefined;
+        },
+      },
+      headers: { get: () => null },
+    };
+    const activeSession = await handleGuardSession(mockReq, TEST_SECRET);
+    expect(activeSession.authenticated).toBe(true);
+
+    // 3. Complete logout revokes both tokens
+    const { clearAllAuthCookies } = await import("../../src/mine/auth/rememberMe.js");
+    clearAllAuthCookies(mockCookieStore);
+    expect(cookieJar.has(ACCESS_TOKEN_COOKIE)).toBe(false);
+    expect(cookieJar.has(REFRESH_TOKEN_COOKIE)).toBe(false);
+
+    // 4. Guard session fails closed
+    const unauthedReq = {
+      cookies: {
+        get: (name) => {
+          const entry = cookieJar.get(name);
+          return entry ? { value: entry.value } : undefined;
+        },
+      },
+      headers: { get: () => null },
+    };
+    const postLogoutSession = await handleGuardSession(unauthedReq, TEST_SECRET);
+    expect(postLogoutSession.authenticated).toBe(false);
+  });
 });
