@@ -947,17 +947,14 @@ export default function ProviderDetailPage() {
       {connections
         .map((conn, index) => (
           <div key={conn.id} className="flex min-w-0 items-stretch">
-            <label className="group/select flex shrink-0 cursor-pointer items-center px-2 sm:px-3">
+            <label className="flex shrink-0 cursor-pointer items-center px-2 sm:px-3">
               <input
                 type="checkbox"
                 checked={isSelected(conn.id)}
                 onChange={() => toggleSelectConnection(conn.id)}
-                className="peer sr-only"
+                className="size-4"
                 aria-label={`Select ${conn.name || conn.email || "connection"}`}
               />
-              <span className="flex size-5 items-center justify-center rounded-md border border-border-subtle bg-surface-2 text-transparent shadow-inner transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out group-hover/select:border-text-muted/60 peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-[var(--shadow-focus)] peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background">
-                <span className="material-symbols-outlined text-[15px] font-bold leading-none" aria-hidden="true">check</span>
-              </span>
             </label>
             <div className="flex-1 min-w-0">
               <ConnectionRow
@@ -1571,17 +1568,14 @@ export default function ProviderDetailPage() {
               )}
               {connections.length > 0 && (
                 <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
-                  <label className="group/select flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-xs font-medium text-text-muted transition-colors hover:text-text-main">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-xs font-medium text-text-muted transition-colors hover:text-text-main select-none">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAllConnections}
-                      className="peer sr-only"
+                      className="size-4"
                     />
-                    <span className="flex size-4 items-center justify-center rounded border border-border-subtle bg-surface-2 text-transparent shadow-inner transition-[background-color,border-color,box-shadow] duration-150 ease-out group-hover/select:border-text-muted/60 peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-[var(--shadow-focus)] peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background">
-                      <span className="material-symbols-outlined text-[12px] font-bold leading-none" aria-hidden="true">check</span>
-                    </span>
-                    Select All
+                    <span>Select All</span>
                   </label>
                 </div>
               )}

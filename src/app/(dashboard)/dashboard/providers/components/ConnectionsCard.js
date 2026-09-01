@@ -133,8 +133,8 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
           )}
         </div>
       </div>
-      <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
-        <div className="flex flex-wrap gap-1">
+      <div className="flex h-10 w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+        <div className="flex h-10 items-center gap-1">
           {(proxyPools || []).length > 0 && (
             <div className="relative" ref={proxyDropdownRef}>
               <button
@@ -159,12 +159,11 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
             <span className="material-symbols-outlined text-[18px]">edit</span>
             <span className="text-[10px] leading-tight">Edit</span>
           </button>
-          <button onClick={onDelete} className="flex flex-col items-center px-2 py-1 rounded hover:bg-red-500/10 text-red-500">
+          <button onClick={onDelete} title="Delete connection" className="flex size-10 items-center justify-center rounded-lg p-0 text-red-500 transition-colors hover:bg-red-500/10">
             <span className="material-symbols-outlined text-[18px]">delete</span>
-            <span className="text-[10px] leading-tight">Delete</span>
           </button>
         </div>
-        <Toggle size="sm" checked={connection.isActive ?? true} onChange={onToggleActive} title={(connection.isActive ?? true) ? "Disable" : "Enable"} />
+        <Toggle className="h-10" size="sm" checked={connection.isActive ?? true} onChange={onToggleActive} title={(connection.isActive ?? true) ? "Disable" : "Enable"} />
       </div>
     </div>
   );

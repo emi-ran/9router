@@ -29,21 +29,18 @@ const Toggle = forwardRef(function Toggle(
       thumb: "size-3.5",
       translate: "translate-x-[14px]",
       translateOff: "translate-x-[2px]",
-      icon: "text-[10px]",
     },
     md: {
       track: "w-11 h-6",
       thumb: "size-5",
       translate: "translate-x-5",
       translateOff: "translate-x-[2px]",
-      icon: "text-[12px]",
     },
     lg: {
       track: "w-14 h-7",
       thumb: "size-6",
       translate: "translate-x-7",
       translateOff: "translate-x-[2px]",
-      icon: "text-[14px]",
     },
   };
 
@@ -63,8 +60,6 @@ const Toggle = forwardRef(function Toggle(
       handleClick(e);
     }
   };
-
-  const isConnection = variant === "connection";
 
   return (
     <div
@@ -94,9 +89,7 @@ const Toggle = forwardRef(function Toggle(
           "active:not(:disabled):scale-[0.96]",
           checked
             ? "border-primary bg-primary shadow-[0_2px_8px_-1px_rgba(229,106,74,0.35)] hover:border-primary-hover hover:bg-primary-hover"
-            : isConnection
-            ? "border-border-subtle bg-surface-3 hover:border-text-muted/60"
-            : "border-black/15 bg-black/10 hover:border-black/30 hover:bg-black/15 dark:border-white/15 dark:bg-white/10 dark:hover:border-white/30 dark:hover:bg-white/15",
+            : "border-black/20 bg-black/10 hover:border-black/35 hover:bg-black/15 dark:border-white/20 dark:bg-white/10 dark:hover:border-white/35 dark:hover:bg-white/15",
           currentSize.track,
           disabled && "cursor-not-allowed pointer-events-none"
         )}
@@ -104,25 +97,12 @@ const Toggle = forwardRef(function Toggle(
       >
         <span
           className={cn(
-            "pointer-events-none inline-flex items-center justify-center rounded-full bg-white text-primary",
-            "shadow-[0_1px_3px_0_rgba(0,0,0,0.25),0_1px_2px_-1px_rgba(0,0,0,0.15)]",
+            "pointer-events-none inline-block rounded-full bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.3),0_1px_2px_-1px_rgba(0,0,0,0.2)]",
             "transform transition-transform duration-200 ease-out",
             checked ? currentSize.translate : currentSize.translateOff,
             currentSize.thumb
           )}
-        >
-          {isConnection && checked && (
-            <span
-              className={cn(
-                "material-symbols-outlined font-bold leading-none select-none",
-                currentSize.icon
-              )}
-              aria-hidden="true"
-            >
-              check
-            </span>
-          )}
-        </span>
+        />
       </button>
       {(label || description) && (
         <div
@@ -155,7 +135,7 @@ Toggle.propTypes = {
   description: PropTypes.node,
   disabled: PropTypes.bool,
   size: PropTypes.oneOf(["sm", "md", "lg"]),
-  variant: PropTypes.oneOf(["default", "connection"]),
+  variant: PropTypes.string,
   className: PropTypes.string,
   title: PropTypes.string,
   id: PropTypes.string,

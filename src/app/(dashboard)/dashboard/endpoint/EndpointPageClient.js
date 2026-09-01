@@ -1036,10 +1036,10 @@ export default function APIPageClient({ machineId }) {
                     <code className="text-xs text-text-muted font-mono truncate max-w-[200px] sm:max-w-none">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                     </code>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex h-7 shrink-0 items-center gap-1">
                       <button
                         onClick={() => toggleKeyVisibility(key.id)}
-                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                        className="flex size-7 items-center justify-center rounded-md p-0 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
                         title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                       >
                         <span className="material-symbols-outlined text-[14px]">
@@ -1048,7 +1048,7 @@ export default function APIPageClient({ machineId }) {
                       </button>
                       <button
                         onClick={() => copy(key.key, key.id)}
-                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                        className="flex size-7 items-center justify-center rounded-md p-0 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {copied === key.id ? "check" : "content_copy"}
@@ -1063,9 +1063,10 @@ export default function APIPageClient({ machineId }) {
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
                 </div>
-                <div className="flex items-center justify-end gap-2 shrink-0 self-end sm:self-center">
+                <div className="flex h-10 shrink-0 items-center justify-end gap-2 self-end sm:self-center">
                   <Toggle
                     size="sm"
+                    className="h-10"
                     checked={key.isActive ?? true}
                     onChange={(checked) => {
                       if (key.isActive && !checked) {
@@ -1085,7 +1086,8 @@ export default function APIPageClient({ machineId }) {
                   />
                   <button
                     onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                    title="Delete API key"
+                    className="flex size-10 items-center justify-center rounded-lg p-0 text-red-500 opacity-100 transition-colors hover:bg-red-500/10 sm:opacity-0 sm:group-hover:opacity-100"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
