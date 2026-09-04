@@ -31,6 +31,7 @@ import {
   getHiddenQuotaRows,
   getQuotaVisibilityKey,
   getConnectionLabel,
+  getCodexPlan,
   getConnectionQuotaRemaining,
   sortVisibleConnections,
   buildLoadingState,
@@ -202,6 +203,7 @@ function SortableCard({
 
   const isFirst = index === 0;
   const isLast = index === totalCount - 1;
+  const codexPlan = isCodex ? getCodexPlan(quota, conn) : null;
 
   return (
     <div
@@ -263,6 +265,11 @@ function SortableCard({
               <p className="text-[10px] text-text-muted/70 truncate leading-tight" title={getConnectionSecondaryLabel(conn)}>
                 {getConnectionSecondaryLabel(conn)}
               </p>
+            ) : null}
+            {codexPlan ? (
+              <span className="mt-1 inline-flex rounded-full bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-primary">
+                {codexPlan}
+              </span>
             ) : null}
           </div>
         </div>
