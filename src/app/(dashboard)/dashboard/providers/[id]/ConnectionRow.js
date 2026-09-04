@@ -88,6 +88,13 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     : connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()
       ? connection.displayName.trim()
       : null;
+  const subscriptionExpiry = connection.provider === "codex"
+    ? connection.providerSpecificData?.chatgptSubscriptionActiveUntil
+    : null;
+  const subscriptionExpiryDate = subscriptionExpiry ? new Date(subscriptionExpiry) : null;
+  const subscriptionExpiryLabel = subscriptionExpiryDate && Number.isFinite(subscriptionExpiryDate.getTime())
+    ? `Subscription ends ${subscriptionExpiryDate.toISOString().slice(0, 10)}`
+    : null;
 
   // Use useState + useEffect for impure Date.now() to avoid calling during render
   const [isCooldown, setIsCooldown] = useState(false);
@@ -172,6 +179,11 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <Badge variant="default" size="sm">
               {authLabel}
             </Badge>
+            {subscriptionExpiryLabel && (
+              <Badge variant="default" size="sm" title={subscriptionExpiry}>
+                {subscriptionExpiryLabel}
+              </Badge>
+            )}
             {hasAnyProxy && (
               <Badge variant={proxyBadgeVariant} size="sm">
                 Proxy

@@ -300,11 +300,23 @@ export async function refreshCodexToken(refreshToken, log) {
         expiresIn: tokens.expires_in,
       });
 
+      const providerSpecificData = {};
+      if (tokens.id_token) {
+        const { extractCodexAccountInfo } = await import("../../../src/lib/oauth/providerHelpers.js");
+        const info = extractCodexAccountInfo(tokens.id_token);
+        if (info.chatgptAccountId) providerSpecificData.chatgptAccountId = info.chatgptAccountId;
+        if (info.chatgptPlanType) providerSpecificData.chatgptPlanType = info.chatgptPlanType;
+        if (info.chatgptSubscriptionActiveUntil) {
+          providerSpecificData.chatgptSubscriptionActiveUntil = info.chatgptSubscriptionActiveUntil;
+        }
+      }
+
       return {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || refreshToken,
         idToken: tokens.id_token,
         expiresIn: tokens.expires_in,
+        ...(Object.keys(providerSpecificData).length ? { providerSpecificData } : {}),
       };
     } catch (error) {
       log?.error?.("TOKEN_REFRESH", `Network error refreshing Codex token: ${error.message}`);

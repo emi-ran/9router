@@ -46,8 +46,11 @@ export async function POST(request) {
         if (auth.chatgpt_plan_type) {
           providerSpecificData.chatgptPlanType = auth.chatgpt_plan_type;
         }
+        if (auth.chatgpt_subscription_active_until) {
+          providerSpecificData.chatgptSubscriptionActiveUntil = auth.chatgpt_subscription_active_until;
+        }
 
-        // Store expiry info from JWT if available
+        // Store token expiry info from JWT if available
         if (payload.exp) {
           providerSpecificData.jwtExp = payload.exp;
         }
@@ -63,6 +66,9 @@ export async function POST(request) {
       if (info.email) email = info.email;
       if (info.chatgptAccountId) providerSpecificData.chatgptAccountId = info.chatgptAccountId;
       if (info.chatgptPlanType) providerSpecificData.chatgptPlanType = info.chatgptPlanType;
+      if (info.chatgptSubscriptionActiveUntil) {
+        providerSpecificData.chatgptSubscriptionActiveUntil = info.chatgptSubscriptionActiveUntil;
+      }
     }
 
     const connectionName = name || email || "ChatGPT Access Token";
