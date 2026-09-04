@@ -316,11 +316,13 @@ export async function POST(request, { params }) {
 
         const accountId = info.chatgptAccountId || directPayload.account_id;
         const planType = info.chatgptPlanType || directPayload.plan_type;
+        const subscriptionActiveUntil = info.chatgptSubscriptionActiveUntil;
         const email = info.email || directPayload.email;
 
         const providerSpecificData = { authMethod: "access_token" };
         if (accountId) providerSpecificData.chatgptAccountId = accountId;
         if (planType) providerSpecificData.chatgptPlanType = planType;
+        if (subscriptionActiveUntil) providerSpecificData.chatgptSubscriptionActiveUntil = subscriptionActiveUntil;
 
         const connection = await createProviderConnection({
           provider,

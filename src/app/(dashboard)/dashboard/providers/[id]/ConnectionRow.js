@@ -6,7 +6,7 @@ import PropTypes from "prop-types";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
 
-export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
+export default function ConnectionRow({ connection, plan = null, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
   const [showMobileProxyOptions, setShowMobileProxyOptions] = useState(false);
@@ -88,9 +88,37 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     : connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()
       ? connection.displayName.trim()
       : null;
+  const liveCodexPlan = plan?.trim();
+  const storedCodexPlan = connection.providerSpecificData?.chatgptPlanType?.trim();
+  const codexPlan = connection.provider === "codex"
+    ? liveCodexPlan && liveCodexPlan.toLowerCase() !== "unknown"
+      ? liveCodexPlan
+      : storedCodexPlan
+    : null;
+  const subscriptionExpiry = connection.provider === "codex" && codexPlan && !codexPlan.toLowerCase().includes("free")
+    ? connection.providerSpecificData?.chatgptSubscriptionActiveUntil
+    : null;
+  const subscriptionExpiryDate = subscriptionExpiry ? new Date(subscriptionExpiry) : null;
 
   // Use useState + useEffect for impure Date.now() to avoid calling during render
+  const [now, setNow] = useState(null);
   const [isCooldown, setIsCooldown] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setNow(Date.now()), 0);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const subscriptionDaysRemaining = subscriptionExpiryDate && Number.isFinite(subscriptionExpiryDate.getTime()) && now !== null
+    ? Math.ceil((subscriptionExpiryDate.getTime() - now) / 86_400_000)
+    : null;
+  const subscriptionExpiryLabel = subscriptionDaysRemaining === null
+    ? null
+    : subscriptionDaysRemaining < 0
+      ? "Subscription ended"
+      : subscriptionDaysRemaining === 0
+        ? "Ends today"
+        : `Ends in ${subscriptionDaysRemaining} day${subscriptionDaysRemaining === 1 ? "" : "s"}`;
 
   // Get earliest model lock timestamp (useEffect handles the Date.now() comparison)
   const modelLockUntil = Object.entries(connection)
@@ -172,6 +200,16 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <Badge variant="default" size="sm">
               {authLabel}
             </Badge>
+            {codexPlan && codexPlan.toLowerCase() !== "unknown" && (
+              <Badge variant="primary" size="sm">
+                {codexPlan}
+              </Badge>
+            )}
+            {subscriptionExpiryLabel && (
+              <Badge variant="default" size="sm" title={subscriptionExpiry}>
+                {subscriptionExpiryLabel}
+              </Badge>
+            )}
             {hasAnyProxy && (
               <Badge variant={proxyBadgeVariant} size="sm">
                 Proxy
@@ -418,6 +456,7 @@ ConnectionRow.propTypes = {
     priority: PropTypes.number,
     globalPriority: PropTypes.number,
   }).isRequired,
+  plan: PropTypes.string,
   proxyPools: PropTypes.arrayOf(PropTypes.shape({
     id: PropTypes.string,
     name: PropTypes.string,

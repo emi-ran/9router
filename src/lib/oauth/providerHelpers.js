@@ -78,6 +78,7 @@ export function extractCodexAccountInfo(idToken) {
     email: payload.email,
     chatgptAccountId: chatgpt.chatgpt_account_id || payload.account_id,
     chatgptPlanType: chatgpt.chatgpt_plan_type || payload.plan_type,
+    chatgptSubscriptionActiveUntil: chatgpt.chatgpt_subscription_active_until,
   };
 }
 

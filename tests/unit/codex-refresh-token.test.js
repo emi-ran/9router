@@ -31,6 +31,11 @@ describe("Codex Refresh Token", () => {
     return fetchMock;
   }
 
+  function makeJwt(payload) {
+    const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    return `${encode({ alg: "none" })}.${encode(payload)}.signature`;
+  }
+
   describe("refreshCodexToken", () => {
     it("should return new refresh_token when server provides one (token rotation)", async () => {
       const fetchMock = mockFetchWithJson({
@@ -73,6 +78,32 @@ describe("Codex Refresh Token", () => {
       const result = await refreshCodexToken("old-refresh-token-without-rotation", null);
 
       expect(result.refreshToken).toBe("old-refresh-token-without-rotation");
+    });
+
+    it("should extract subscription expiry from refreshed Codex id_token", async () => {
+      const subscriptionEndsAt = "2026-10-15T00:00:00.000Z";
+      const idToken = makeJwt({
+        "https://api.openai.com/auth": {
+          chatgpt_account_id: "acct_123",
+          chatgpt_plan_type: "plus",
+          chatgpt_subscription_active_until: subscriptionEndsAt,
+        },
+      });
+      mockFetchWithJson({
+        access_token: "new-access",
+        refresh_token: "new-refresh",
+        id_token: idToken,
+        expires_in: 3600,
+      });
+
+      const { refreshCodexToken } = await import("../../open-sse/services/tokenRefresh.js");
+      const result = await refreshCodexToken("old-refresh-token", null);
+
+      expect(result.providerSpecificData).toEqual({
+        chatgptAccountId: "acct_123",
+        chatgptPlanType: "plus",
+        chatgptSubscriptionActiveUntil: subscriptionEndsAt,
+      });
     });
   });
 

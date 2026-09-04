@@ -56,10 +56,11 @@ const codex = {
     };
     const email = info.email || extractEmailFromAccessToken(tokens.access_token);
     if (email) mapped.email = email;
-    if (info.chatgptAccountId || info.chatgptPlanType) {
+    if (info.chatgptAccountId || info.chatgptPlanType || info.chatgptSubscriptionActiveUntil) {
       mapped.providerSpecificData = {
         chatgptAccountId: info.chatgptAccountId,
         chatgptPlanType: info.chatgptPlanType,
+        chatgptSubscriptionActiveUntil: info.chatgptSubscriptionActiveUntil,
       };
     }
     return mapped;

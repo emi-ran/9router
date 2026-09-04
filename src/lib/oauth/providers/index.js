@@ -214,18 +214,20 @@ export async function backfillCodexEmails() {
       if (c.provider !== "codex" || c.authType !== "oauth" || !c.idToken) return false;
       const hasEmail = !!c.email;
       const hasAccountInfo = !!c.providerSpecificData?.chatgptAccountId;
-      return !hasEmail || !hasAccountInfo;
+      const hasSubscriptionExpiry = !!c.providerSpecificData?.chatgptSubscriptionActiveUntil;
+      return !hasEmail || !hasAccountInfo || !hasSubscriptionExpiry;
     });
     for (const conn of targets) {
       const info = extractCodexAccountInfo(conn.idToken);
-      if (!info.email && !info.chatgptAccountId) continue;
+      if (!info.email && !info.chatgptAccountId && !info.chatgptSubscriptionActiveUntil) continue;
       const patch = {};
       if (!conn.email && info.email) patch.email = info.email;
-      if (info.chatgptAccountId || info.chatgptPlanType) {
+      if (info.chatgptAccountId || info.chatgptPlanType || info.chatgptSubscriptionActiveUntil) {
         patch.providerSpecificData = {
           ...(conn.providerSpecificData || {}),
-          chatgptAccountId: info.chatgptAccountId,
-          chatgptPlanType: info.chatgptPlanType,
+          ...(info.chatgptAccountId ? { chatgptAccountId: info.chatgptAccountId } : {}),
+          ...(info.chatgptPlanType ? { chatgptPlanType: info.chatgptPlanType } : {}),
+          ...(info.chatgptSubscriptionActiveUntil ? { chatgptSubscriptionActiveUntil: info.chatgptSubscriptionActiveUntil } : {}),
         };
       }
       if (Object.keys(patch).length) {
