@@ -2,6 +2,7 @@
 import "open-sse/index.js";
 
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+import { buildClearModelLocksUpdate } from "open-sse/services/accountFallback.js";
 import { getClaudeUsage } from "open-sse/services/usage/claude.js";
 import { getCodexUsage } from "open-sse/services/usage/codex.js";
 import { getExecutor } from "open-sse/executors/index.js";
@@ -218,6 +219,13 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
 
   if (providerConfig.skipWhenBlockingQuotaExhausted && hasExhaustedBlockingQuota(quotas, providerConfig.quotaKey)) return;
   if (isQuotaExhausted(quota)) return;
+
+  // A sliding codex quota reset just gave this account a fresh window: clear any
+  // stale model locks so routing can retry it immediately instead of waiting out
+  // the previous usage_limit_reached cooldown.
+  if (providerConfig.pingWhenResetAtSlides) {
+    await deps.updateProviderConnection(connection.id, buildClearModelLocksUpdate(connection));
+  }
 
   const now = Date.now();
   const resetKey = normalizeResetKey(resetAt);
