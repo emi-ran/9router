@@ -118,6 +118,52 @@ describe("CodexExecutor tool normalization", () => {
     ]);
   });
 
+  it("appends web search after existing Responses function tools", () => {
+    const body = {
+      model: "gpt-5.5",
+      input: "hi",
+      tools: [{ type: "function", name: "metamcp", parameters: { type: "object", properties: {} } }],
+      _autoCodexWebSearch: true,
+    };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([
+      { type: "function", name: "metamcp", parameters: { type: "object", properties: {} } },
+      { type: "web_search" },
+    ]);
+  });
+
+  it("does not duplicate an existing web search tool", () => {
+    const body = { model: "gpt-5.5", input: "hi", tools: [{ type: "web_search", search_context_size: "medium" }], _autoCodexWebSearch: true };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([{ type: "web_search", search_context_size: "medium" }]);
+  });
+
+  it("adds web search when Responses tools are empty", () => {
+    const body = { model: "gpt-5.5", input: "hi", tools: [], _autoCodexWebSearch: true };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([{ type: "web_search" }]);
+  });
+
+  it("adds web search when Responses tools are omitted", () => {
+    const body = { model: "gpt-5.5", input: "hi", _autoCodexWebSearch: true };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([{ type: "web_search" }]);
+  });
+
+  it("leaves unmarked requests unchanged", () => {
+    const body = { model: "gpt-5.5", input: "hi", tools: [] };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([]);
+  });
+
+  it("keeps tool_choice none while adding web search", () => {
+    const body = { model: "gpt-5.5", input: "hi", tools: [], tool_choice: "none", _autoCodexWebSearch: true };
+    new CodexExecutor().transformRequest("gpt-5.5", body);
+    expect(body.tools).toEqual([{ type: "web_search" }]);
+    expect(body.tool_choice).toBe("none");
+    expect(body._autoCodexWebSearch).toBeUndefined();
+  });
+
   it("strips only Unicode-property patterns rejected by Codex", () => {
     const unicodePattern = "^(?!__.*__$)[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]{1,200}$";
     const validPattern = "^[a-z][a-z0-9_-]{0,31}$";
