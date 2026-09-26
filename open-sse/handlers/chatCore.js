@@ -365,6 +365,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
+  // Only Codex requests received at /v1/responses opt into hosted web search.
+  if (provider === "codex" && ["/v1/responses", "/api/v1/responses"].includes(clientRawRequest?.endpoint)) {
+    translatedBody._autoCodexWebSearch = true;
+  }
+
   // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
   // Most executors return their registry format. Cursor AgentService is an
