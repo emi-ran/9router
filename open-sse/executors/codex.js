@@ -418,6 +418,12 @@ export class CodexExecutor extends BaseExecutor {
     const normalized = normalizeResponsesInput(body.input);
     if (normalized) body.input = normalized;
     const upstreamModel = getModelUpstreamId("cx", body.model || model);
+    // Register hosted search before choosing transport; Lite cannot execute it.
+    const autoWebSearch = body._autoCodexWebSearch === true;
+    delete body._autoCodexWebSearch;
+    if (autoWebSearch && !body.tools?.some?.(tool => tool?.type === "web_search")) {
+      body.tools = [...(Array.isArray(body.tools) ? body.tools : []), { type: "web_search" }];
+    }
     // Hosted search cannot run from a Lite input prefix. When switching to
     // regular Responses, move all prefixed tools without duplicating definitions.
     let convertedLitePrefix = false;
@@ -449,12 +455,6 @@ export class CodexExecutor extends BaseExecutor {
     convertSystemToDeveloperRole(body);
     // Strip server-generated item IDs (rs_/fc_/resp_/msg_) — Codex /responses can't resolve when store=false
     stripStoredItemReferences(body, responsesLite);
-    // Add hosted search only for /v1/responses requests routed to Codex.
-    const autoWebSearch = body._autoCodexWebSearch === true;
-    delete body._autoCodexWebSearch;
-    if (autoWebSearch && !body.tools?.some?.(tool => tool?.type === "web_search")) {
-      body.tools = [...(Array.isArray(body.tools) ? body.tools : []), { type: "web_search" }];
-    }
     // Flatten function tools + drop unsupported types
     normalizeCodexTools(body);
 
