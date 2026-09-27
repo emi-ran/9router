@@ -123,6 +123,32 @@ function getCodexResetCreditCount(quota) {
   return Number.isFinite(count) ? Math.max(0, count) : 0;
 }
 
+const CLAUDE_RESET_LIMIT_NAMES = {
+  five_hour: "session",
+  seven_day: "weekly",
+  seven_day_overage_included: "weekly",
+  seven_day_opus: "Opus weekly",
+  seven_day_sonnet: "Sonnet weekly",
+};
+
+function formatClaudeResetClears(clears) {
+  const names = [...new Set((clears || []).map((c) => CLAUDE_RESET_LIMIT_NAMES[c]).filter(Boolean))];
+  return names.length ? `${names.join(" + ")} limits` : "limits";
+}
+
+function claudeGrantStatus(grant) {
+  if (grant.resetsLeft <= 0) return "used";
+  if (grant.paused) return "paused";
+  if (grant.endsAt && new Date(grant.endsAt).getTime() <= Date.now()) return "expired";
+  if (grant.usableNow) return "usable now";
+  if (grant.startsAt && new Date(grant.startsAt).getTime() > Date.now()) return "not started";
+  return grant.useRequiresLimit ? "at limit only" : "unavailable";
+}
+
+function providerLabel(providerId) {
+  return AI_PROVIDERS[providerId]?.name || providerId;
+}
+
 function formatCreditDate(value) {
   if (!value) return "N/A";
   const date = new Date(value);
@@ -180,6 +206,7 @@ function SortableCard({
   onToggleActive,
   onOpenResetConfirm,
   onViewCodexResetCredits,
+  onViewClaudeResets,
   onMoveCard,
 }) {
   const {
@@ -204,6 +231,8 @@ function SortableCard({
   const isFirst = index === 0;
   const isLast = index === totalCount - 1;
   const codexPlan = isCodex ? getCodexPlan(quota, conn) : null;
+  const claudeReset = conn.provider === "claude" ? quota?.raw?.resetCredits : null;
+  const resetLabel = isCodex ? "Codex reset credit" : "Claude limit reset";
 
   return (
     <div
@@ -276,13 +305,13 @@ function SortableCard({
 
         {/* Header Actions - Desktop */}
         <div className="hidden items-center gap-3 shrink-0 pr-1 sm:flex">
-          {isCodex && (
+          {(isCodex || claudeReset) && (
             <div className="flex items-center rounded-full border border-border-subtle bg-surface-2/60 px-1.5 py-0.5">
               <Tooltip
                 text={
                   resetCreditCount > 0
-                    ? `Use one Codex reset credit. Available: ${resetCreditCount}`
-                    : "No Codex reset credits available"
+                    ? claudeReset ? `Use your reset now (${resetCreditCount} left, use by ${formatCreditDate(claudeReset.expiresAt)}) · refills ${formatClaudeResetClears(claudeReset.clears)}` : `Use one ${resetLabel}. Available: ${resetCreditCount}`
+                    : `No ${resetLabel}s available`
                 }
               >
                 <button
@@ -291,8 +320,8 @@ function SortableCard({
                   disabled={resetCreditCount <= 0 || isLoading || rowBusy}
                   aria-label={
                     resetCreditCount > 0
-                      ? `Use one Codex reset credit. ${resetCreditCount} available.`
-                      : "No Codex reset credits available"
+                      ? `Use one ${resetLabel}. ${resetCreditCount} available.`
+                      : `No ${resetLabel}s available`
                   }
                    className={`flex h-7 items-center justify-center gap-1 rounded-full px-1.5 text-[11px] font-medium tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     resetCreditCount > 0
@@ -309,9 +338,9 @@ function SortableCard({
               <Tooltip text="View reset credit history/expiry">
                 <button
                   type="button"
-                  onClick={() => onViewCodexResetCredits(conn)}
+                  onClick={() => claudeReset ? onViewClaudeResets(conn, claudeReset) : onViewCodexResetCredits(conn)}
                   disabled={isLoading || rowBusy}
-                  aria-label="View Codex reset credit expiry"
+                  aria-label={isCodex ? "View Codex reset credit expiry" : "View Claude Code reset expiry"}
                    className="flex h-7 w-6 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[14px]">schedule</span>
@@ -484,7 +513,7 @@ function SortableCard({
                     </>
                   )}
 
-                  {isCodex && (
+                  {(isCodex || claudeReset) && (
                     <>
                       <button
                         type="button"
@@ -502,13 +531,13 @@ function SortableCard({
                         <span className="material-symbols-outlined text-[16px] text-primary">
                           restart_alt
                         </span>
-                        <span>Reset Limit ({resetCreditCount})</span>
+                        <span>{isCodex ? "Reset Limit" : "Claude Limit Reset"} ({resetCreditCount})</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
                           setMobileActionsConnId(null);
-                          onViewCodexResetCredits(conn);
+                          claudeReset ? onViewClaudeResets(conn, claudeReset) : onViewCodexResetCredits(conn);
                         }}
                         disabled={isLoading || rowBusy}
                         className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-text-primary hover:bg-surface-2 disabled:opacity-40"
@@ -516,7 +545,7 @@ function SortableCard({
                         <span className="material-symbols-outlined text-[16px] text-text-muted">
                           schedule
                         </span>
-                        <span>Reset Credits History</span>
+                        <span>{isCodex ? "Reset Credits History" : "Limit Reset Expiry"}</span>
                       </button>
                       <div className="my-1 h-px bg-border-subtle" />
                     </>
@@ -973,29 +1002,40 @@ export default function ProviderLimits() {
 
   const handleResetCodexLimit = useCallback(
     async (connectionId, provider) => {
-      if (provider !== "codex" || resettingLimitId) return;
+      if ((provider !== "codex" && provider !== "claude") || resettingLimitId) return;
 
       setResettingLimitId(connectionId);
       setErrors((prev) => ({ ...prev, [connectionId]: null }));
 
       try {
-        const response = await fetch(`/api/usage/${connectionId}/codex-reset-credits`, { method: "POST" });
+        const response = provider === "claude"
+          ? await fetch(`/api/usage/${connectionId}/claude-reset`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ grantId: quotaData[connectionId]?.raw?.resetCredits?.nextGrantId }),
+          })
+          : await fetch(`/api/usage/${connectionId}/codex-reset-credits`, { method: "POST" });
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(result.message || result.error || result.code || "Failed to reset Codex limit");
+          throw new Error(result.message || result.error || result.code || "Failed to reset limit");
         }
 
-        await fetchQuota(connectionId, provider);
+        await fetchQuota(connectionId, provider, { force: true });
         setLastUpdated(new Date());
       } catch (error) {
-        setErrors((prev) => ({ ...prev, [connectionId]: error.message || "Failed to reset Codex limit" }));
+        setErrors((prev) => ({ ...prev, [connectionId]: error.message || "Failed to reset limit" }));
       } finally {
         setResettingLimitId(null);
       }
     },
-    [fetchQuota, resettingLimitId],
+    [fetchQuota, resettingLimitId, quotaData],
   );
+
+  // Claude grants already arrive with the usage read; no extra fetch
+  const handleViewClaudeResets = useCallback((connection, resetCredits) => {
+    setResetCreditsState({ connection, loading: false, error: null, data: { kind: "claude", ...resetCredits } });
+  }, []);
 
   const handleViewCodexResetCredits = useCallback(async (connection) => {
     setResetCreditsState({ connection, loading: true, error: null, data: null });
@@ -1847,6 +1887,7 @@ export default function ProviderLimits() {
                   onToggleActive={handleToggleConnectionActive}
                   onOpenResetConfirm={(c, count) => setResetConfirmState({ connection: c, resetCreditCount: count })}
                   onViewCodexResetCredits={handleViewCodexResetCredits}
+                  onViewClaudeResets={handleViewClaudeResets}
                   onMoveCard={handleMoveCard}
                 />
               );
@@ -1986,8 +2027,10 @@ export default function ProviderLimits() {
           await handleResetCodexLimit(connection.id, connection.provider);
           setResetConfirmState(null);
         }}
-        title="Reset Codex limit?"
-        message={`Use 1 Codex reset credit for ${getConnectionLabel(resetConfirmState?.connection || {}) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
+        title={resetConfirmState?.connection?.provider === "claude" ? "Reset Claude limits?" : "Reset Codex limit?"}
+        message={resetConfirmState?.connection?.provider === "claude"
+          ? `Refills your ${formatClaudeResetClears(quotaData[resetConfirmState.connection.id]?.raw?.resetCredits?.clears)} now for ${getConnectionLabel(resetConfirmState.connection) || "this account"} · your weekly reset day stays ${formatCreditDate(quotaData[resetConfirmState.connection.id]?.raw?.resetCredits?.weeklyResetsAt)}. This cannot be undone. Resets left: ${resetConfirmState.resetCreditCount ?? 0}.`
+          : `Use 1 Codex reset credit for ${getConnectionLabel(resetConfirmState?.connection || {}) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
         confirmText="Reset limit"
         cancelText="Cancel"
         variant="danger"
@@ -1999,9 +2042,9 @@ export default function ProviderLimits() {
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border-subtle bg-surface-2/40 px-4 py-3">
               <div className="min-w-0">
-                <h3 id="codex-reset-credit-expiry-title" className="text-sm font-semibold text-text-primary">Codex Reset Credit Expiry</h3>
+                <h3 id="codex-reset-credit-expiry-title" className="text-sm font-semibold text-text-primary">{resetCreditsState.data?.kind === "claude" ? "Claude Code Limit Resets" : "Codex Reset Credit Expiry"}</h3>
                 <p className="mt-0.5 truncate text-xs text-text-muted">
-                  {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
+                  {getConnectionLabel(resetCreditsState.connection) || (resetCreditsState.data?.kind === "claude" ? "Claude account" : "Codex account")}
                 </p>
               </div>
               <button
@@ -2023,6 +2066,42 @@ export default function ProviderLimits() {
               ) : resetCreditsState.error ? (
                 <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-500">
                   {resetCreditsState.error}
+                </div>
+              ) : resetCreditsState.data?.kind === "claude" && resetCreditsState.data.grants?.length ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
+                    <span>{resetCreditsState.data.availableCount ?? 0} reset{resetCreditsState.data.availableCount === 1 ? "" : "s"} left</span>
+                    <span>Weekly reset day: {formatCreditDate(resetCreditsState.data.weeklyResetsAt)}</span>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
+                    <table className="w-full min-w-[560px] text-left text-sm">
+                      <thead className="bg-black/[0.03] text-xs uppercase tracking-wide text-text-muted dark:bg-white/[0.04]">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">Reset</th>
+                          <th className="px-3 py-2 font-medium">Left</th>
+                          <th className="px-3 py-2 font-medium">Refills</th>
+                          <th className="px-3 py-2 font-medium">Use By</th>
+                          <th className="px-3 py-2 font-medium">Remaining</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(resetCreditsState.data.grants || []).map((grant) => (
+                          <tr key={grant.id} className="border-t border-black/5 dark:border-white/5">
+                            <td className="px-3 py-2">
+                              <div className="text-text-primary">{grant.label || grant.id}</div>
+                              <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                                {claudeGrantStatus(grant)}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium tabular-nums text-text-primary">{grant.resetsLeft} / {grant.resetsTotal}</td>
+                            <td className="px-3 py-2 text-text-muted">{formatClaudeResetClears(grant.clears)}</td>
+                            <td className="px-3 py-2 text-text-primary">{formatCreditDate(grant.endsAt)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-text-primary">{formatTimeRemaining(grant.endsAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : resetCreditsState.data?.credits?.length ? (
                 <div className="space-y-3">
@@ -2059,7 +2138,7 @@ export default function ProviderLimits() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-border-subtle bg-surface-2/40 px-3 py-8 text-center text-xs text-text-muted">
-                  No reset credit details returned for this account.
+                  {resetCreditsState.data?.kind === "claude" ? "No limit resets available for this account." : "No reset credit details returned for this account."}
                 </div>
               )}
             </div>
