@@ -215,9 +215,9 @@ export class CodexExecutor extends BaseExecutor {
    * Override headers to add codex-specific identity headers.
    * transformRequest runs BEFORE buildHeaders, sets this._currentSessionId.
    */
-  buildHeaders(credentials, stream = true, _url = null, model = null) {
+  buildHeaders(credentials, stream = true, _url = null, model = null, body = null) {
     const headers = super.buildHeaders(credentials, stream);
-    if (isCodexResponsesLiteModel(model && getModelUpstreamId("cx", model))) {
+    if (isCodexResponsesLiteModel(model && getModelUpstreamId("cx", model)) && !body?.tools?.some?.(tool => tool?.type === "web_search")) {
       headers["x-openai-internal-codex-responses-lite"] = "true";
     }
     headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
@@ -418,7 +418,9 @@ export class CodexExecutor extends BaseExecutor {
     const normalized = normalizeResponsesInput(body.input);
     if (normalized) body.input = normalized;
     const upstreamModel = getModelUpstreamId("cx", body.model || model);
-    const responsesLite = isCodexResponsesLiteModel(upstreamModel);
+    const responsesLite = isCodexResponsesLiteModel(upstreamModel)
+      && body._autoCodexWebSearch !== true
+      && !body.tools?.some?.(tool => tool?.type === "web_search");
 
     // Ensure input is present and non-empty (Codex API rejects empty input)
     if (!body.input || (Array.isArray(body.input) && body.input.length === 0)) {

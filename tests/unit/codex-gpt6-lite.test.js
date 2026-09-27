@@ -44,6 +44,23 @@ describe("Codex GPT-6 Sol/Luna transport", () => {
     expect(body.reasoning).toEqual({ effort: "high", context: "all_turns" });
   });
 
+  it("uses legacy Responses transport for hosted web search on GPT-6 Sol", () => {
+    const executor = new CodexExecutor();
+    const body = executor.transformRequest("gpt-6-sol", {
+      model: "gpt-6-sol", input: "Search the web", _autoCodexWebSearch: true,
+      tools: [{ type: "function", name: "run", parameters: { type: "object", properties: {} } }],
+      tool_choice: "none",
+    }, true, credentials);
+    const headers = executor.buildHeaders(credentials, true, null, "gpt-6-sol", body);
+    expect(headers["x-openai-internal-codex-responses-lite"]).toBeUndefined();
+    expect(body.tools).toEqual([
+      { type: "function", name: "run", parameters: { type: "object", properties: {} } },
+      { type: "web_search" },
+    ]);
+    expect(body.input.some(item => item.type === "additional_tools")).toBe(false);
+    expect(body.tool_choice).toBe("none");
+  });
+
   it("converts an ordinary Responses request to the Lite shape", () => {
     const executor = new CodexExecutor();
     const tool = { type: "function", name: "run", parameters: { type: "object", properties: {} } };
