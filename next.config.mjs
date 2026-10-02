@@ -8,6 +8,7 @@ const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   ? join(projectRoot, "..")
   : projectRoot;
 const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
+const buildCpus = Number(process.env.NINEROUTER_BUILD_CPUS);
 const allowedDevOrigins = process.env.NEXT_ALLOWED_DEV_ORIGINS
   ?.split(",")
   .map((origin) => origin.trim())
@@ -38,6 +39,13 @@ const nextConfig = {
   },
   env: {},
   experimental: {
+    ...(Number.isInteger(buildCpus) && buildCpus > 0 ? {
+      cpus: buildCpus,
+      webpackMemoryOptimizations: true,
+      webpackBuildWorker: true,
+      parallelServerCompiles: false,
+      parallelServerBuildTraces: false,
+    } : {}),
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.
     proxyClientMaxBodySize,
     // Cache fetch responses across HMR refreshes for faster dev reloads.

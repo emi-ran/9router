@@ -16,6 +16,8 @@ RUN if [ "$ALPINE_MIRROR" != "dl-cdn.alpinelinux.org" ]; then \
 
 FROM base AS builder
 ARG NPM_REGISTRY
+ARG BUILD_NODE_MAX_OLD_SPACE_SIZE=1024
+ARG BUILD_CPUS=1
 
 RUN apk add --no-cache python3 make g++ linux-headers
 
@@ -31,7 +33,9 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# Build-only limits; Node heap is not total process RAM.
+RUN NODE_OPTIONS="--max-old-space-size=${BUILD_NODE_MAX_OLD_SPACE_SIZE}" \
+    NINEROUTER_BUILD_CPUS="${BUILD_CPUS}" npm run build
 
 FROM ${NODE_IMAGE} AS runner
 ARG ALPINE_MIRROR
