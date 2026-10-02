@@ -1,5 +1,26 @@
 # Docker
 
+## Building on a small VPS / Dokploy
+
+Docker builds default to one Next.js build worker and a 1024 MiB Node.js heap
+limit. Webpack memory optimizations are enabled and parallel server compilation
+and tracing are disabled. Settings apply only during build, not runtime.
+
+Override with Docker build arguments when more memory is available:
+
+```bash
+docker build --build-arg BUILD_NODE_MAX_OLD_SPACE_SIZE=1536 --build-arg BUILD_CPUS=1 -t 9router-local .
+```
+
+In Dokploy, use build arguments, not runtime environment variables, for these
+overrides. No override is needed for the low-memory defaults.
+
+Heap limits are not container-wide memory or CPU quotas. Native allocations,
+workers, Docker and running services need additional RAM. A build can fail with
+a JavaScript heap error; increase the limit only after checking available RAM.
+These defaults reduce pressure but cannot guarantee host stability. The
+Dockerfile does not change swap or production resource settings.
+
 Run 9Router in a container. Published image: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
 
 ---
