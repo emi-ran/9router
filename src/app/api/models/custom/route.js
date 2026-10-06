@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCustomModels, addCustomModel, deleteCustomModel } from "@/models";
-import { CAPACITY_META, isSttTransport } from "@/shared/constants/models";
+import { CAPACITY_META } from "@/shared/constants/models";
+import { getProviderByAlias } from "@/shared/constants/providers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,7 @@ function sanitizeCaps(caps) {
 // Unknown or mistyped values are silently dropped, the same policy
 // sanitizeCaps applies to capability keys.
 function sanitizeTransport(transport, type) {
-  if (type !== "stt" || !isSttTransport(transport)) return null;
-  return transport.trim();
+  return null;
 }
 
 // GET /api/models/custom - List all custom models
@@ -39,6 +39,12 @@ export async function GET() {
 export async function POST(request) {
   try {
     const { providerAlias, id, type, name, caps, transport } = await request.json();
+    const provider = getProviderByAlias(providerAlias);
+    const kind = type || "llm";
+    if (!provider || !["llm", "image", "imageToText", "webSearch", "webFetch"].includes(kind)
+      || (kind === "llm" && !["antigravity", "codex", "opencode"].includes(provider.id))) {
+      return NextResponse.json({ error: "Unsupported provider or model kind" }, { status: 400 });
+    }
     if (!providerAlias || !id) {
       return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
     }

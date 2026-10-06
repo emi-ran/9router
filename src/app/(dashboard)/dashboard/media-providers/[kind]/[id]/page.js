@@ -1,71 +1,31 @@
 "use client";
 
-import { useParams, notFound, useRouter } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { Card, Badge, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+
+import { Badge, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider } from "@/shared/constants/providers";
+import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS,  } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
 import ModelsCard from "@/app/(dashboard)/dashboard/providers/components/ModelsCard";
 import { KIND_EXAMPLE_CONFIG } from "./components/exampleShared";
-import { EmbeddingExampleCard } from "./components/EmbeddingExampleCard";
-import { TtsExampleCard } from "./components/TtsExampleCard";
 import { GenericExampleCard } from "./components/GenericExampleCard";
-import { SttExampleCard } from "./components/SttExampleCard";
 
 // MediaProviderDetailPage
 export default function MediaProviderDetailPage() {
   const { kind, id } = useParams();
-  const router = useRouter();
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kind);
-  const isCustom = isCustomEmbeddingProvider(id) && kind === "embedding";
-
-  const handleDeleteCustom = async () => {
-    if (!confirm("Delete this Custom Embedding node?")) return;
-    try {
-      const res = await fetch(`/api/provider-nodes/${id}`, { method: "DELETE" });
-      if (res.ok) router.push(`/dashboard/media-providers/${kind}`);
-    } catch (error) {
-      console.log("Error deleting custom embedding node:", error);
-    }
-  };
-
-  const [customNode, setCustomNode] = useState(null);
-  const [customLoading, setCustomLoading] = useState(isCustom);
-  const [showEditModal, setShowEditModal] = useState(false);
-
-  // Fetch custom node info from API for custom embedding nodes
-  useEffect(() => {
-    if (!isCustom) return;
-    let cancelled = false;
-    fetch("/api/provider-nodes", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        setCustomNode((d.nodes || []).find((n) => n.id === id) || null);
-        setCustomLoading(false);
-      })
-      .catch(() => { if (!cancelled) setCustomLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, isCustom]);
-
+  const isCustom = false;
   if (!kindConfig) return notFound();
 
   const builtInProvider = AI_PROVIDERS[id];
 
   // For custom embedding nodes, build a synthetic provider object
-  const provider = isCustom
-    ? (customNode ? { id, name: customNode.name || "Custom Embedding", color: "#6366F1", textIcon: "CE" } : null)
-    : builtInProvider;
+  const provider = builtInProvider;
 
   if (!isCustom && !builtInProvider) return notFound();
-  if (isCustom && !customLoading && !customNode) return notFound();
-  if (isCustom && customLoading) {
-    return <div className="text-text-muted text-sm py-12 text-center">Loading...</div>;
-  }
 
-  const kinds = isCustom ? ["embedding"] : (provider.serviceKinds ?? ["llm"]);
+  const kinds = provider.serviceKinds ?? ["llm"];
   if (!isCustom && !kinds.includes(kind)) return notFound();
 
   return (
@@ -108,7 +68,7 @@ export default function MediaProviderDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {isCustom && <Badge variant="default" size="sm">Custom · {customNode?.prefix}</Badge>}
+              {false}
               {kinds.map((k) => (
                 <Badge key={k} variant={k === kind ? "primary" : "default"} size="sm">
                   {k.toUpperCase()}
@@ -116,16 +76,7 @@ export default function MediaProviderDetailPage() {
               ))}
             </div>
           </div>
-          {isCustom && (
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
-                Edit
-              </Button>
-              <Button size="sm" variant="secondary" icon="delete" onClick={handleDeleteCustom}>
-                Delete
-              </Button>
-            </div>
-          )}
+          {false}
         </div>
       </div>
 
@@ -167,7 +118,7 @@ export default function MediaProviderDetailPage() {
         <ModelsCard
           providerId={id}
           kindFilter={kind}
-          providerAliasOverride={isCustom ? customNode?.prefix : undefined}
+          providerAliasOverride={undefined}
         />
       )}
 
@@ -176,11 +127,7 @@ export default function MediaProviderDetailPage() {
         <ProviderInfoCard
           config={
             kind === "webFetch" ? provider.fetchConfig
-              : kind === "tts" ? provider.ttsConfig
-              : kind === "stt" ? provider.sttConfig
-              : kind === "embedding" ? provider.embeddingConfig
-              : kind === "systemone" ? provider.systemoneConfig
-              : provider.searchConfig || { mode: "chat-completions", defaultModel: provider.searchViaChat?.defaultModel, pricingUrl: provider.searchViaChat?.pricingUrl, freeTier: provider.searchViaChat?.freeTier }
+              :     provider.searchConfig || { mode: "chat-completions", defaultModel: provider.searchViaChat?.defaultModel, pricingUrl: provider.searchViaChat?.pricingUrl, freeTier: provider.searchViaChat?.freeTier }
           }
           provider={provider}
           title={`${kindConfig.label} Config`}
@@ -189,23 +136,13 @@ export default function MediaProviderDetailPage() {
 
       {/* Example — per kind */}
       {kind === "embedding" && (
-        <EmbeddingExampleCard providerId={id} customAlias={customNode?.prefix} />
+        null
       )}
-      {kind === "tts" && <TtsExampleCard providerId={id} />}
-      {kind === "stt" && !isCustom && <SttExampleCard providerId={id} />}
+      {kind === "tts" && null}
+      {kind === "stt" && !isCustom && null}
       {!isCustom && KIND_EXAMPLE_CONFIG[kind] && <GenericExampleCard providerId={id} kind={kind} />}
 
-      {isCustom && (
-        <AddCustomEmbeddingModal
-          isOpen={showEditModal}
-          node={customNode}
-          onClose={() => setShowEditModal(false)}
-          onSaved={(updated) => {
-            setCustomNode(updated);
-            setShowEditModal(false);
-          }}
-        />
-      )}
+      {false}
     </div>
   );
 }

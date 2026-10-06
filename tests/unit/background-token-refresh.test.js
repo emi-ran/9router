@@ -12,7 +12,7 @@ const NOW = Date.parse("2026-08-01T12:00:00.000Z");
 function conn(overrides = {}) {
   return {
     id: "c1",
-    provider: "grok-cli",
+    provider: "codex",
     authType: "oauth",
     refreshToken: "rt-1",
     expiresAt: new Date(NOW + 10 * 60 * 1000).toISOString(),
@@ -32,7 +32,7 @@ describe("selectConnectionsNeedingRefresh", () => {
     vi.resetModules();
   });
 
-  it("selects oauth grok-cli connection expiring in 10 minutes", async () => {
+  it("selects oauth codex connection expiring in 10 minutes", async () => {
     const { selectConnectionsNeedingRefresh } = await import(
       "../../src/sse/services/backgroundTokenRefresh.js"
     );

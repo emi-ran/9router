@@ -1,75 +1,20 @@
-// Ensure outbound fetch respects HTTP(S)_PROXY/ALL_PROXY in Node runtime
-import "open-sse/index.js";
-
+import "open-sse/utils/proxyFetch.js";
 import { generatePKCE } from "../utils/pkce.js";
-import { extractCodexAccountInfo, fetchKiroProfileArn } from "../providerHelpers.js";
-
-import claude from "./claude.js";
+import { extractCodexAccountInfo } from "../providerHelpers.js";
 import codex from "./codex.js";
-import xai from "./xai.js";
-import grokCli from "./grok-cli.js";
-import muse from "./muse.js";
-import geminiCli from "./gemini-cli.js";
 import antigravity from "./antigravity.js";
-import iflow from "./iflow.js";
-import qoder from "./qoder.js";
-import qoderCn from "./qoder-cn.js";
-import github from "./github.js";
-import kiro from "./kiro.js";
-import cursor from "./cursor.js";
-import kimi from "./kimi.js";
-import kilocode from "./kilocode.js";
-import cline from "./cline.js";
-import clinepass from "./clinepass.js";
-import gitlab from "./gitlab.js";
-import codebuddyCn from "./codebuddy-cn.js";
-import codebuddyIntl from "./codebuddy-intl.js";
-import kimchi from "./kimchi.js";
-import trae from "./trae.js";
-import windsurf from "./windsurf.js";
-import zed from "./zed.js";
-import glm from "./glm.js";
-
-// Provider configurations
-const PROVIDERS = {
-  claude,
-  codex,
-  xai,
-  "grok-cli": grokCli,
-  muse,
-  "gemini-cli": geminiCli,
-  antigravity,
-  iflow,
-  qoder,
-  "qoder-cn": qoderCn,
-  github,
-  kiro,
-  cursor,
-  kimi,
-  kilocode,
-  cline,
-  clinepass,
-  gitlab,
-  "codebuddy-cn": codebuddyCn,
-  "codebuddy-intl": codebuddyIntl,
-  kimchi,
-  trae,
-  windsurf,
-  zed,
-  glm,
-};
-
+const PROVIDERS = { codex, antigravity };
 export { PROVIDERS };
 
 // Re-export helpers that other files import from this path
-export { extractCodexAccountInfo, fetchKiroProfileArn };
+export { extractCodexAccountInfo };
 
 /**
  * Get provider handler
  */
 export function getProvider(name) {
   // Legacy kimi-coding → kimi (dual-auth merge)
-  const key = name === "kimi-coding" ? "kimi" : name;
+  const key = name;
   const provider = PROVIDERS[key];
   if (!provider) {
     throw new Error(`Unknown provider: ${name}`);
@@ -149,13 +94,6 @@ export async function exchangeTokens(providerName, code, redirectUri, codeVerifi
 /**
  * Request device code (for device_code flow)
  */
-export async function requestDeviceCode(providerName, codeChallenge, options) {
-  const provider = getProvider(providerName);
-  if (provider.flowType !== "device_code") {
-    throw new Error(`Provider ${providerName} does not support device code flow`);
-  }
-  return await provider.requestDeviceCode(provider.config, codeChallenge, options || {});
-}
 
 /**
  * Poll for token (for device_code flow)
@@ -164,60 +102,6 @@ export async function requestDeviceCode(providerName, codeChallenge, options) {
  * @param {string} codeVerifier - PKCE code verifier (optional for some providers)
  * @param {object} extraData - Extra data from device code response (e.g. clientId/clientSecret for Kiro)
  */
-export async function pollForToken(providerName, deviceCode, codeVerifier, extraData) {
-  const provider = getProvider(providerName);
-  if (provider.flowType !== "device_code") {
-    throw new Error(`Provider ${providerName} does not support device code flow`);
-  }
-
-  const result = await provider.pollToken(provider.config, deviceCode, codeVerifier, extraData);
-
-  if (result.ok) {
-    // For device code flows, success is only when we have an access token
-    if (result.data.access_token) {
-      // Call postExchange to get additional data (copilotToken, userInfo, etc.)
-      let extra = null;
-      if (provider.postExchange) {
-        try {
-          extra = await provider.postExchange(result.data);
-        } catch (err) {
-          // The grant succeeded but post-login exchange failed (e.g. Muse key
-          // mint). The device code is one-shot, so re-polling can never
-          // recover — surface as fatal so the client stops and shows the error.
-          console.warn(`[oauth] ${providerName} postExchange failed:`, err?.message || err);
-          return { success: false, error: "exchange_failed", errorDescription: err.message, fatal: true };
-        }
-      }
-      const tokens = provider.mapTokens(result.data, extra);
-      // Kiro IDC/Builder-ID tokens lack profileArn; resolve it to avoid 403
-      if (providerName === "kiro" && !tokens.providerSpecificData?.profileArn) {
-        const profileArn = await fetchKiroProfileArn(tokens.accessToken);
-        if (profileArn) tokens.providerSpecificData.profileArn = profileArn;
-      }
-      return { success: true, tokens };
-    } else {
-      // Check if it's still pending authorization
-      if (result.data.error === 'authorization_pending' || result.data.error === 'slow_down') {
-        // This is not a failure, just still waiting
-        return {
-          success: false,
-          error: result.data.error,
-          errorDescription: result.data.error_description || result.data.message,
-          pending: result.data.error === 'authorization_pending'
-        };
-      } else {
-        // Actual error
-        return {
-          success: false,
-          error: result.data.error || 'no_access_token',
-          errorDescription: result.data.error_description || result.data.message || 'No access token received'
-        };
-      }
-    }
-  }
-
-  return { success: false, error: result.data.error, errorDescription: result.data.error_description };
-}
 
 // Run-once guard across the process lifetime
 let codexBackfillDone = false;

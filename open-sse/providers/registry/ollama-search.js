@@ -14,7 +14,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  authModes: ["apikey"],
+
   serviceKinds: ["webSearch"],
   // Credential fallback: reuses the API key registered under the `ollama`
   // chat provider — one key, chat + search.

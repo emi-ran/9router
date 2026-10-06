@@ -7,7 +7,7 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
   return (
     <div className="flex items-center gap-2 w-full min-w-0">
       <span className={`text-xs font-mono px-1.5 py-1 rounded shrink-0 min-w-[70px] sm:min-w-[80px] text-center ${
-          (badge === "CF" || badge === "TS") ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
+          badge === "CF" ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
         }`}>{label}</span>
       <Input value={url} readOnly className="flex-1 min-w-0 font-mono text-sm" />
       <div className="flex items-center gap-1 shrink-0">

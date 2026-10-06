@@ -142,7 +142,26 @@ docker run --rm -p 20128:20128 \
   9router
 ```
 
-The Dockerfile uses the official Alpine and npm registries by default. Regional mirrors can be supplied when needed:
+The Dockerfile uses the official Alpine and npm registries by default.
+
+Dependencies install with `npm ci` from `package.json` and `package-lock.json`,
+copied together before application source to preserve dependency-layer caching.
+Keep both files synchronized; lockfile mismatches fail the build. The npm cache
+mount, bounded fetch retries and native compilation tools remain enabled.
+
+Build context excludes nested `node_modules`, `.next`/`.next-*` validation builds,
+`.opencode-playwright` captures and all `.env*` files except root `.env.example`.
+Source, public assets and the lockfile remain included. Inject private environment
+values at runtime, not through the image build context.
+
+Image setup fails if required data-directory creation or ownership changes fail;
+only the legacy `/root/.9router` symlink is optional. Runtime bind mounts,
+`DATA_DIR=/app/data` and privilege dropping through `su-exec` remain unchanged.
+
+Offline configuration regression: `node --test tests/unit/basic-docker-config.test.js`
+(Node.js 22.13+). This does not replace an image build and isolated runtime check.
+
+Regional mirror example:
 
 ```bash
 docker build \

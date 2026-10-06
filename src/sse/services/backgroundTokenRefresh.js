@@ -50,7 +50,7 @@ export function selectConnectionsNeedingRefresh(connections, nowMs = Date.now())
 
   const out = [];
   for (const conn of connections) {
-    if (!conn) continue;
+    if (!conn || !["antigravity", "codex"].includes(conn.provider) || conn.isActive === false) continue;
 
     const authType = String(conn.authType || "").toLowerCase().replace(/_/g, "");
     if (authType !== "oauth") continue;

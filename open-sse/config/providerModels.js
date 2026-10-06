@@ -8,8 +8,7 @@ import { FORMATS } from "../translator/formats.js";
 export { PROVIDER_MODELS };
 
 // OpenCode providers sharing the endpoint-family fallback for unknown model ids
-const isOpenCodeAlias = (aliasOrId) => !aliasOrId || ["oc", "opencode", "ocg", "opencode-go", "ocz", "opencode-zen"].includes(aliasOrId);
-
+const isOpenCodeAlias = (aliasOrId) => !aliasOrId || ["oc", "opencode"].includes(aliasOrId);
 
 // Helper functions
 export function getProviderModels(aliasOrId) {
@@ -24,7 +23,7 @@ export function getDefaultModel(aliasOrId) {
 // Providers whose registry uses dots in version numbers (e.g. "claude-sonnet-4.5").
 // For these, we tolerate clients sending dashes ("claude-sonnet-4-5") by normalizing
 // digit-hyphen-digit to digit-dot-digit before lookup. Other providers are left untouched.
-const DOT_VERSION_PROVIDERS = new Set(["kr", "kiro"]);
+const DOT_VERSION_PROVIDERS = new Set();
 
 // Find a registry entry by id. For Kiro models, tolerates dash/dot version separators
 // ("claude-sonnet-4-5" ~= "claude-sonnet-4.5"). Other providers use exact match only.

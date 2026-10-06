@@ -4,8 +4,6 @@ import {
   FREE_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
-  OPENAI_COMPATIBLE_PREFIX,
-  ANTHROPIC_COMPATIBLE_PREFIX,
 } from "@/shared/constants/providers";
 import { testSingleConnection } from "../[id]/test/testUtils.js";
 
@@ -19,24 +17,17 @@ function getAuthGroup(providerId, connection = null) {
     }
     return connection.authType;
   }
-  
+
   // Fallback to constants
   if (FREE_PROVIDERS[providerId]) return "free";
   if (OAUTH_PROVIDERS[providerId]) return "oauth";
   if (APIKEY_PROVIDERS[providerId]) return "apikey";
-  if (
-    typeof providerId === "string" &&
-    (providerId.startsWith(OPENAI_COMPATIBLE_PREFIX) || providerId.startsWith(ANTHROPIC_COMPATIBLE_PREFIX))
-  )
-    return "compatible";
+
   return "apikey";
 }
 
 function isCompatibleProvider(providerId) {
-  return (
-    typeof providerId === "string" &&
-    (providerId.startsWith(OPENAI_COMPATIBLE_PREFIX) || providerId.startsWith(ANTHROPIC_COMPATIBLE_PREFIX))
-  );
+  return false;
 }
 
 // POST /api/providers/test-batch - Test multiple connections by group

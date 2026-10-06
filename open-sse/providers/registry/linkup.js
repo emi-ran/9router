@@ -13,9 +13,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch"
-  ],
+  serviceKinds: ["webSearch"],
   searchConfig: {
     baseUrl: "https://api.linkup.so/v1/search",
     method: "POST",

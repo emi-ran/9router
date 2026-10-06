@@ -67,6 +67,8 @@ export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
 } from "./repos/requestDetailsRepo.js";
 
+import { normalizeBasicImport } from "@/mine/import/compatibility.js";
+
 // Export/import full DB
 export async function exportDb() {
   const db = await getAdapter();
@@ -93,10 +95,11 @@ export async function exportDb() {
   return out;
 }
 
-export async function importDb(payload) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+export async function importDb(rawPayload) {
+  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
     throw new Error("Invalid database payload");
   }
+  const { normalizedPayload: payload, summary } = normalizeBasicImport(rawPayload);
   const db = await getAdapter();
 
   db.transaction(() => {
@@ -162,7 +165,16 @@ export async function importDb(payload) {
     }
   });
 
-  return await exportDb();
+  const exported = await exportDb();
+  if (exported && typeof exported === "object") {
+    Object.defineProperty(exported, "__compatibilitySummary", {
+      value: summary,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return exported;
 }
 
 // Eager init helper (optional)

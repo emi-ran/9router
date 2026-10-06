@@ -1,5 +1,15 @@
 # open-sse
 
+## Basic fork override (2026-10-07)
+
+Chat executors accept Antigravity, Codex and OpenCode Free only; unknown and
+media-only providers must not use a generic chat fallback. Token-saving modules
+are removed, so historical RTK lifecycle/directory instructions below no longer
+apply. Chat flow translates source format, dispatches retained executor, then
+translates response. Preserve OpenAI Chat/Responses, Claude and Gemini client
+conversion. Image and Search remain; Fetch accepts TinyFish/Tavily only. Stored
+legacy provider records must never reactivate retired transports.
+
 Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM chat, image, embedding, tts, stt, search), streamed back in the client's format.
 
 ## Request lifecycle (chat)

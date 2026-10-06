@@ -122,6 +122,17 @@ En önemli prensip:
 
 <!-- BEGIN:nextjs-agent-rules -->
 
+## Basic fork scope (2026-10-07)
+
+Chat: Antigravity, Codex, OpenCode Free only. Image and Search remain; Web Fetch:
+TinyFish and Tavily only. No Token Saver, CLI configuration tools, embedding,
+TTS, STT, video, SystemOne, dashboard SSO, 9Remote or 9English. Preserve password
+login, remember-me, CSRF and retained-provider OAuth. Legacy stored records must
+remain physically intact without runtime reactivation. Keep generic OpenAI,
+Responses, Claude and Gemini client translation. Core changes require offline
+regressions and isolated build/UI checks. Integration remains incomplete until
+profile SSO UI and obsolete runtime references/tests are cleared.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.

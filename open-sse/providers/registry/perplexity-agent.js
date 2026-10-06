@@ -20,30 +20,15 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: {
-    baseUrl: "https://api.perplexity.ai/v1/responses",
-    validateUrl: "https://api.perplexity.ai/v1/models",
-    format: "openai-responses",
-  },
+
   models: [
-    { id: "perplexity/sonar", name: "Perplexity Sonar" },
-    { id: "openai/gpt-5.5", name: "GPT-5.5" },
-    { id: "openai/gpt-5.4", name: "GPT-5.4" },
-    { id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini" },
-    { id: "anthropic/claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
-    { id: "anthropic/claude-opus-4-8", name: "Claude Opus 4.8" },
-    { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro" },
-    { id: "xai/grok-4.20-reasoning", name: "Grok 4.20 Reasoning" },
-    { id: "perplexity/glm-5.2", name: "GLM 5.2" },
-    { id: "perplexity/kimi-k2.7-code", name: "Kimi K2.7 Code" },
-    { id: "nvidia/nemotron-3-super-120b-a12b", name: "Nemotron 3 Super 120B" },
+
   ],
-  serviceKinds: ["llm", "webSearch"],
+  serviceKinds: ["webSearch"],
   searchViaChat: {
     defaultModel: "perplexity/sonar",
     endpoint: "https://api.perplexity.ai/v1/responses",
     pricingUrl: "https://docs.perplexity.ai/docs/agent-api/models",
   },
-  modelsFetcher: { url: "https://api.perplexity.ai/v1/models", type: "openai" },
-  passthroughModels: true,
+
 };

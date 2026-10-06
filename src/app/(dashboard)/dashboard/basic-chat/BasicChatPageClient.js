@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button } from "@/shared/components";
 import { getModelsByProviderId } from "@/shared/constants/models";
-import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
 
 const STORAGE_KEYS = {
   sessions: "basic-chat.sessions",
@@ -134,8 +133,7 @@ function normalizeLiveModel(model, connection) {
     : model?.name || model?.displayName || rawId;
 
   let requestModel = rawId;
-  const isCompatible = isOpenAICompatibleProvider(connection.provider) || isAnthropicCompatibleProvider(connection.provider);
-  if (isCompatible && !rawId.includes("/")) {
+  if (!rawId.includes("/")) {
     requestModel = `${connection.provider}/${rawId}`;
   }
 
@@ -221,7 +219,7 @@ export default function BasicChatPageClient() {
         const providersRes = await fetch("/api/providers", { cache: "no-store" });
         const providersData = await providersRes.json().catch(() => ({}));
         const connections = Array.isArray(providersData.connections)
-          ? providersData.connections.filter((connection) => connection?.isActive !== false)
+          ? providersData.connections.filter((connection) => connection?.isActive !== false && ["antigravity", "codex", "opencode"].includes(connection.provider))
           : [];
 
         if (connections.length === 0) {
@@ -237,11 +235,7 @@ export default function BasicChatPageClient() {
         for (const connection of connections) {
           const providerId = connection.provider || connection.id;
           const providerName = getProviderLabel(connection);
-          const providerType = isOpenAICompatibleProvider(providerId)
-            ? "openai-compatible"
-            : isAnthropicCompatibleProvider(providerId)
-              ? "anthropic-compatible"
-              : providerId;
+          const providerType = providerId;
 
           if (!providerMap.has(providerId)) {
             providerMap.set(providerId, {

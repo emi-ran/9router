@@ -18,7 +18,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: null,
+
   models: [
     { id: "flux-pro-1.1", name: "FLUX Pro 1.1", params: ["n","size"], kind: "image" },
     { id: "flux-pro-1.1-ultra", name: "FLUX Pro 1.1 Ultra", params: ["size"], kind: "image" },

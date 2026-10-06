@@ -1,18 +1,10 @@
-import { ollamaModels } from "open-sse/config/ollamaModels.js";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "*"
-};
-
-export async function OPTIONS() {
-  return new Response(null, { headers: CORS_HEADERS });
-}
+import { buildModelsList } from "../v1/models/route.js";
 
 export async function GET() {
-  return new Response(JSON.stringify(ollamaModels), {
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS }
-  });
+  const data = await buildModelsList(["llm"]);
+  return Response.json({ models: data.map((model) => ({ name: model.id, model: model.id })) }, { headers: { "Access-Control-Allow-Origin": "*" } });
 }
 
+export async function OPTIONS() {
+  return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Allow-Headers": "*" } });
+}

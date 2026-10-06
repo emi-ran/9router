@@ -13,9 +13,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch"
-  ],
+  serviceKinds: ["webSearch"],
   searchConfig: {
     baseUrl: "https://api.search.brave.com/res/v1",
     method: "GET",

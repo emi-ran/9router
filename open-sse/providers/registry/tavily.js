@@ -13,10 +13,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch",
-    "webFetch"
-  ],
+  serviceKinds: ["webSearch","webFetch"],
   searchConfig: {
     baseUrl: "https://api.tavily.com/search",
     method: "POST",

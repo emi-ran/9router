@@ -7,6 +7,7 @@ import {
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
+import { getProviderByAlias } from "@/shared/constants/providers";
 import { handleImageGenerationCore } from "open-sse/handlers/imageGenerationCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -68,7 +69,11 @@ export async function handleImageGeneration(request) {
 }
 
 async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId } = {}) {
-  const modelInfo = await getModelInfo(modelStr);
+  const slash = typeof modelStr === "string" ? modelStr.indexOf("/") : -1;
+  const mediaProvider = slash > 0 ? getProviderByAlias(modelStr.slice(0, slash)) : null;
+  const modelInfo = mediaProvider && mediaProvider.serviceKinds?.includes("image")
+    ? { provider: mediaProvider.id, model: modelStr.slice(slash + 1) }
+    : await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
@@ -105,7 +110,7 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
+    const refreshedCredentials = ["antigravity", "codex"].includes(provider) ? await checkAndRefreshToken(provider, credentials) : credentials;
 
     const result = await handleImageGenerationCore({
       body,

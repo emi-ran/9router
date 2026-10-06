@@ -18,15 +18,11 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: {
-    baseUrl: "https://api.perplexity.ai/chat/completions",
-    validateUrl: "https://api.perplexity.ai/models",
-  },
+
   models: [
-    { id: "sonar-pro", name: "Sonar Pro" },
-    { id: "sonar", name: "Sonar" },
+
   ],
-  serviceKinds: ["llm","webSearch"],
+  serviceKinds: ["webSearch"],
   searchViaChat: {
     defaultModel: "sonar",
     endpoint: "https://api.perplexity.ai/chat/completions",

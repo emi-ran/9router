@@ -1,16 +1,11 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
-const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
-const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
-
 const DEFAULT_SETTINGS = {
   cloudEnabled: false,
   tunnelEnabled: false,
   tunnelUrl: "",
   tunnelProvider: "cloudflare",
-  tailscaleEnabled: false,
-  tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
   quotaVisibility: {},
@@ -26,19 +21,6 @@ const DEFAULT_SETTINGS = {
   requireLogin: true,
   requireApiKey: true,
   tunnelDashboardAccess: true,
-  authMode: "password",
-  ssoType: "oidc",
-  oidcIssuerUrl: "",
-  oidcClientId: "",
-  oidcClientSecret: "",
-  oidcScopes: "openid profile email",
-  oidcLoginLabel: "Sign in with OIDC",
-  samlEntryPoint: "",
-  samlIssuer: "urn:9router:sp",
-  samlCert: "",
-  samlLoginLabel: "Sign in with SAML SSO",
-  samlAttributeEmail: "email",
-  samlAttributeName: "name",
   enableObservability: false,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
@@ -47,21 +29,6 @@ const DEFAULT_SETTINGS = {
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
-  mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
-  dnsToolEnabled: {},
-  rtkEnabled: true,
-  headroomEnabled: false,
-  headroomUrl: DEFAULT_HEADROOM_URL,
-  headroomCompressUserMessages: false,
-  headroomTimeoutMs: 3000,
-  cavemanEnabled: false,
-  cavemanLevel: "full",
-  ponytailEnabled: false,
-  ponytailLevel: "full",
-  pxpipeEnabled: false,
-  pxpipeAutoInstall: true,
-  pxpipeMinChars: 25000,
-  pxpipeTimeoutMs: 15000,
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
 };
@@ -72,9 +39,18 @@ async function readRaw() {
   return row ? parseJson(row.data, {}) : {};
 }
 
+// Ignore retired settings in runtime views; preserve original stored document.
+export function isRetiredSetting(key) {
+  return /^(authMode$|ssoType$|oidc|saml|rtk|headroom|caveman|ponytail|pxpipe|claudeAutoPing$|tailscale|mitm|dnsToolEnabled$)/.test(key);
+}
+
+export function withoutRetiredSettings(value) {
+  return Object.fromEntries(Object.entries(value || {}).filter(([key]) => !isRetiredSetting(key)));
+}
+
 // Merge raw settings with defaults; backward-compat for missing keys
 export function mergeWithDefaults(raw) {
-  const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...withoutRetiredSettings(raw) };
   for (const [key, defVal] of Object.entries(DEFAULT_SETTINGS)) {
     if (merged[key] === undefined) {
       if (
@@ -113,7 +89,7 @@ export async function updateSettings(updates) {
   db.transaction(function () {
     const row = db.get(`SELECT data FROM settings WHERE id = 1`);
     const current = row ? parseJson(row.data, {}) : {};
-    next = { ...current, ...updates };
+    next = { ...current, ...withoutRetiredSettings(updates) };
     db.run(
       `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
       [stringifyJson(next)],

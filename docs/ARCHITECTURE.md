@@ -2,6 +2,22 @@
 
 _Last updated: 2026-02-06_
 
+## Basic fork scope update (2026-10-07)
+
+This scope overrides historical upstream provider/lifecycle descriptions below.
+Chat dispatch and model aliases permit Antigravity, Codex and OpenCode Free only.
+Image and Search remain independent; Web Fetch permits TinyFish and Tavily.
+Token Saver and CLI configuration tools are removed, together with embedding,
+TTS, STT, video, SystemOne and dashboard SSO. Password/remember-me/CSRF and
+Antigravity/Codex OAuth remain. Stored unsupported records remain on disk but
+must not participate in runtime dispatch, refresh, quota or model enumeration.
+Shared client translation retains OpenAI Chat/Responses, Claude and Gemini.
+Tailscale API/UI/startup integration and now-unconsumed MITM runtime are removed.
+Cloudflare Tunnel monitoring and local/LAN access remain. Legacy Tailscale/MITM
+settings stay physically stored but are excluded from runtime settings views.
+Integration is incomplete: profile SSO forms and remaining retired runtime/test
+references require cleanup before release acceptance.
+
 ## Executive Summary
 
 9Router is a local AI routing gateway and dashboard built on Next.js.

@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Unit tests for 9router embeddings endpoint",
+  "description": "Offline regressions for 9Router basic fork",
   "scripts": {
     "test": "vitest run --reporter=verbose",
-    "test:watch": "vitest --reporter=verbose"
+    "test:watch": "vitest --reporter=verbose",
+    "test:basic": "node --test unit/basic-provider-media.test.js unit/basic-removed-tools.test.js unit/basic-integration.test.mjs unit/basic-capacity-adapter.test.mjs auth/password-only.test.js"
   },
   "devDependencies": {
     "vitest": "^4.0.0"

@@ -14,7 +14,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: null,
+
   models: [
     { id: "recraftv3", name: "Recraft V3", params: ["n","size","style"], kind: "image" },
     { id: "recraftv2", name: "Recraft V2", params: ["n","size","style"], kind: "image" },

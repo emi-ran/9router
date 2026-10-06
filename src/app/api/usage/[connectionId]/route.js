@@ -26,6 +26,7 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
   // refreshing with a stale snapshot (reuse) revokes the whole session → account logout.
   const latest = connection.id ? await getProviderConnectionById(connection.id) : null;
   if (latest) connection = latest;
+  if (!["antigravity", "codex"].includes(connection.provider)) throw new Error("Unsupported quota provider");
 
   const executor = getExecutor(connection.provider);
 
@@ -142,6 +143,7 @@ export async function GET(request, { params }) {
     if (!connection) {
       return Response.json({ error: "Connection not found" }, { status: 404 });
     }
+    if (!["antigravity", "codex"].includes(connection.provider)) return Response.json({ error: "Unsupported quota provider" }, { status: 400 });
 
     // Allow OAuth connections, plus whitelisted apikey providers (glm/minimax/kiro/...)
     // Kiro's headless api-key flow persists authType "api_key" (underscore) while

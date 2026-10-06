@@ -12,6 +12,10 @@ export async function GET(request) {
     return NextResponse.json({ error: "Missing url or type" }, { status: 400 });
   }
 
+  if (type !== "opencode-free" || url !== "https://opencode.ai/zen/v1/models") {
+    return NextResponse.json({ error: "Unsupported model catalog" }, { status: 400 });
+  }
+
   const filter = FILTERS[type];
   if (!filter) {
     return NextResponse.json({ error: "Unknown filter type" }, { status: 400 });

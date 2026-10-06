@@ -13,9 +13,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch"
-  ],
+  serviceKinds: ["webSearch"],
   searchConfig: {
     baseUrl: "https://google.serper.dev",
     method: "POST",

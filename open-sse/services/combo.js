@@ -96,7 +96,7 @@ function trailingUserItems(arr) {
   const isAssistant = (r) => r === "assistant" || r === "model";
   let i = arr.length - 1;
   while (i >= 0 && !isAssistant(arr[i]?.role)) i--;
-  return arr.slice(i + 1);
+  return arr;
 }
 
 // Detect which capabilities a request needs. Modalities (vision/pdf) are scanned

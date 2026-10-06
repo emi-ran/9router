@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import open from "open";
 import { ANTIGRAVITY_CONFIG, getOAuthClientMetadata } from "../constants/oauth.js";
-import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { spinner as createSpinner } from "../utils/ui.js";
 
@@ -194,31 +193,7 @@ export class AntigravityService {
    * Save Antigravity tokens to server
    */
   async saveTokens(tokens, userInfo, projectId) {
-    const { server, token, userId } = getServerCredentials();
-
-    const response = await fetch(`${server}/api/cli/providers/antigravity`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        "X-User-Id": userId,
-      },
-      body: JSON.stringify({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresIn: tokens.expires_in,
-        scope: tokens.scope,
-        email: userInfo.email,
-        projectId: projectId, // Send projectId to server
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Failed to save tokens");
-    }
-
-    return await response.json();
+    throw new Error("CLI credential saving is unavailable; connect through dashboard OAuth");
   }
 
   /**
@@ -316,4 +291,3 @@ export class AntigravityService {
     }
   }
 }
-

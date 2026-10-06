@@ -1,4 +1,4 @@
-// Web Fetch handler — dispatches to firecrawl, jina-reader, tavily, exa, ollama, tinyfish
+// Web Fetch handler: TinyFish and Tavily only.
 // Returns normalized shape across all providers
 
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -46,14 +46,6 @@ function truncate(text, max) {
   if (!text || typeof text !== "string") return text || "";
   if (!max || max <= 0) return text;
   return text.length > max ? text.slice(0, max) : text;
-}
-
-function parseJinaTitle(text) {
-  const source = String(text || "");
-  const metadataTitle = source.match(/^\s*Title:\s*(.+)$/mi);
-  if (metadataTitle) return metadataTitle[1].trim();
-  const m = source.match(/^\s*#\s+(.+)$/m);
-  return m ? m[1].trim() : null;
 }
 
 function buildData({ provider, url, title, format, text, links, costUsd, responseMs, upstreamMs }) {
@@ -105,30 +97,11 @@ export async function handleFetchCore({ url, format, maxCharacters, provider, pr
   const startedAt = Date.now();
 
   try {
-    if (provider === "firecrawl") {
-      return await runFirecrawl({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt });
-    }
-    if (provider === "jina-reader") {
-      return await runJina({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt });
-    }
+
     if (provider === "tavily") {
       return await runTavily({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt });
     }
-    if (provider === "exa") {
-      return await runExa({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt });
-    }
-    if (provider === "ollama") {
-      return await runOllama({
-        url,
-        fmt,
-        timeoutMs,
-        apiKey,
-        maxCharacters,
-        costPerQuery,
-        startedAt,
-        baseUrl: providerConfig?.baseUrl,
-      });
-    }
+
     if (provider === "tinyfish") {
       return await runTinyfish({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt, baseUrl: providerConfig?.baseUrl });
     }
@@ -166,66 +139,6 @@ async function runTinyfish({ url, fmt, timeoutMs, apiKey, maxCharacters, costPer
   };
 }
 
-async function runFirecrawl({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt }) {
-  const upstreamStart = Date.now();
-  const r = await tryFetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
-    },
-    body: JSON.stringify({ url, formats: [fmt] })
-  }, timeoutMs);
-
-  if (!r.ok) {
-    return { success: false, status: r.timeout ? 504 : 502, error: r.error };
-  }
-  const upstreamMs = Date.now() - upstreamStart;
-  const { json } = await readJsonOrText(r.res);
-  if (!r.res.ok) {
-    return { success: false, status: r.res.status, error: json?.error || `Firecrawl error: ${r.res.status}` };
-  }
-  const d = json?.data || {};
-  const text = truncate(d.markdown || d.html || d.text || "", maxCharacters);
-  const title = d.metadata?.title || null;
-  return {
-    success: true,
-    data: buildData({
-      provider: "firecrawl", url, title, format: fmt, text,
-      costUsd: costPerQuery, responseMs: Date.now() - startedAt, upstreamMs
-    })
-  };
-}
-
-async function runJina({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt }) {
-  const upstreamStart = Date.now();
-  const r = await tryFetch("https://r.jina.ai/", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
-    },
-    body: JSON.stringify({ url })
-  }, timeoutMs);
-
-  if (!r.ok) {
-    return { success: false, status: r.timeout ? 504 : 502, error: r.error };
-  }
-  const upstreamMs = Date.now() - upstreamStart;
-  const body = await r.res.text();
-  if (!r.res.ok) {
-    return { success: false, status: r.res.status, error: body?.slice(0, 500) || `Jina error: ${r.res.status}` };
-  }
-  const text = truncate(body, maxCharacters);
-  return {
-    success: true,
-    data: buildData({
-      provider: "jina-reader", url, title: parseJinaTitle(body), format: fmt, text,
-      costUsd: costPerQuery, responseMs: Date.now() - startedAt, upstreamMs
-    })
-  };
-}
-
 async function runTavily({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt }) {
   const upstreamStart = Date.now();
   const r = await tryFetch("https://api.tavily.com/extract", {
@@ -252,89 +165,6 @@ async function runTavily({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQu
     data: buildData({
       provider: "tavily", url, title: null, format: fmt, text,
       costUsd: costPerQuery, responseMs: Date.now() - startedAt, upstreamMs
-    })
-  };
-}
-
-async function runExa({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt }) {
-  const upstreamStart = Date.now();
-  const r = await tryFetch("https://api.exa.ai/contents", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(apiKey ? { "x-api-key": apiKey } : {})
-    },
-    body: JSON.stringify({ ids: [url], text: true })
-  }, timeoutMs);
-
-  if (!r.ok) {
-    return { success: false, status: r.timeout ? 504 : 502, error: r.error };
-  }
-  const upstreamMs = Date.now() - upstreamStart;
-  const { json } = await readJsonOrText(r.res);
-  if (!r.res.ok) {
-    return { success: false, status: r.res.status, error: json?.error || `Exa error: ${r.res.status}` };
-  }
-  const first = json?.results?.[0] || {};
-  const text = truncate(first.text || "", maxCharacters);
-  return {
-    success: true,
-    data: buildData({
-      provider: "exa", url, title: first.title || null, format: fmt, text,
-      costUsd: costPerQuery, responseMs: Date.now() - startedAt, upstreamMs
-    })
-  };
-}
-
-async function runOllama({
-  url,
-  fmt,
-  timeoutMs,
-  apiKey,
-  maxCharacters,
-  costPerQuery,
-  startedAt,
-  baseUrl,
-}) {
-  const upstreamStart = Date.now();
-  const r = await tryFetch(baseUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
-    },
-    body: JSON.stringify({ url })
-  }, timeoutMs);
-
-  if (!r.ok) {
-    return { success: false, status: r.timeout ? 504 : 502, error: r.error };
-  }
-  const upstreamMs = Date.now() - upstreamStart;
-  const { json, text: responseText } = await readJsonOrText(r.res);
-  if (!r.res.ok) {
-    const error = json?.error
-      || json?.message
-      || responseText?.slice(0, 500)
-      || `Ollama error: ${r.res.status}`;
-    return { success: false, status: r.res.status, error };
-  }
-  if (!json || typeof json.content !== "string") {
-    return { success: false, status: 502, error: "Ollama returned an empty or invalid web fetch response" };
-  }
-
-  const text = truncate(json.content, maxCharacters);
-  return {
-    success: true,
-    data: buildData({
-      provider: "ollama",
-      url,
-      title: json.title || null,
-      format: fmt,
-      text,
-      links: json.links,
-      costUsd: costPerQuery,
-      responseMs: Date.now() - startedAt,
-      upstreamMs
     })
   };
 }

@@ -94,7 +94,7 @@ export default function CombosPage() {
   const clearSelection = () => setSelectedIds([]);
 
   const handleGeneratePresets = async (source) => {
-    const label = source === "cursor" ? "Cursor Default" : "Claude Default";
+    const label = `${source} Default`;
     setPresetLoading(source);
     try {
       const previewRes = await fetch(`/api/combos/presets?source=${source}`);
@@ -120,7 +120,7 @@ export default function CombosPage() {
 
       setConfirmState({
         title: `Generate ${label}`,
-        message: `Create ${toCreate} combo${toCreate === 1 ? "" : "s"} named like ${source === "cursor" ? "Cursor" : "Claude"} model IDs (seeded with cu/… or cc/…). ${toSkip} already exist and will be skipped. You can edit any combo afterward to add fallbacks.`,
+        message: `Create ${toCreate} ${source} combo presets. ${toSkip} already exist. Edit combos afterward to add fallbacks.`,
         confirmText: "Generate",
         variant: "primary",
         onConfirm: async () => {
@@ -373,38 +373,36 @@ export default function CombosPage() {
             <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
             <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
           </ul>
-          <p className="hidden text-xs text-text-muted mt-3 max-w-2xl">
-            <span className="font-medium text-text-main">Cursor / Claude Default</span> create combos named exactly like those clients&apos; model IDs (e.g. <code className="font-mono">composer-2.5</code>, <code className="font-mono">opus</code>), seeded with the matching <code className="font-mono">cu/…</code> or <code className="font-mono">cc/…</code> route so traffic can hit 9router without the prefix.
-            {" "}Note: Cursor IDE itself often blocks built-in Composer / Grok from Override OpenAI Base URL (&quot;model does not support custom API&quot;); add them via Cursor&apos;s <span className="font-medium text-text-main">Add Custom Model</span> using the combo name, or pick a model Cursor allows through the custom endpoint.
-          </p>
+
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-stretch">
           <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
             Create Combo
           </Button>
-          <div className="hidden">
+          <div className="flex flex-col gap-2">
             <Button
               variant="secondary"
               size="sm"
               icon="edit_note"
-              loading={presetLoading === "cursor"}
+              loading={presetLoading === "codex"}
               disabled={!!presetLoading}
-              onClick={() => handleGeneratePresets("cursor")}
+              onClick={() => handleGeneratePresets("codex")}
               className="w-full whitespace-nowrap"
             >
-              Cursor Default
+              Codex Default
             </Button>
             <Button
               variant="secondary"
               size="sm"
               icon="smart_toy"
-              loading={presetLoading === "claude"}
+              loading={presetLoading === "antigravity"}
               disabled={!!presetLoading}
-              onClick={() => handleGeneratePresets("claude")}
+              onClick={() => handleGeneratePresets("antigravity")}
               className="w-full whitespace-nowrap"
             >
-              Claude Default
+              Antigravity Default
             </Button>
+            <Button variant="secondary" size="sm" loading={presetLoading === "opencode"} disabled={!!presetLoading} onClick={() => handleGeneratePresets("opencode")}>OpenCode Free Default</Button>
           </div>
         </div>
       </div>

@@ -1,23 +1,4 @@
 import { PROVIDERS } from "../config/providers.js";
-import { OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
-
-const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
-const OPENAI_COMPATIBLE_DEFAULTS = {
-  baseUrl: OPENAI_COMPAT_BASE,
-};
-
-const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-";
-const ANTHROPIC_COMPATIBLE_DEFAULTS = {
-  baseUrl: ANTHROPIC_COMPAT_BASE,
-};
-
-function isOpenAICompatible(provider) {
-  return typeof provider === "string" && provider.startsWith(OPENAI_COMPATIBLE_PREFIX);
-}
-
-function isAnthropicCompatible(provider) {
-  return typeof provider === "string" && provider.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
-}
 
 // Resolve the API type (chat vs responses) for an openai-compatible node.
 // The stored apiType on the connection's providerSpecificData (kept in sync with
@@ -112,32 +93,14 @@ export function detectFormat(body) {
 
 // Get provider config (internal — no external runtime consumer)
 function getProviderConfig(provider, credentials = null) {
-  if (isOpenAICompatible(provider)) {
-    const apiType = resolveOpenAICompatibleApiType(provider, credentials);
-    return {
-      ...PROVIDERS.openai,
-      format: apiType === "responses" ? "openai-responses" : "openai",
-      baseUrl: OPENAI_COMPATIBLE_DEFAULTS.baseUrl,
-    };
+  if (!["antigravity", "codex", "opencode"].includes(provider) || !PROVIDERS[provider]) {
+    throw new Error(`Unsupported chat provider: ${provider}`);
   }
-  if (isAnthropicCompatible(provider)) {
-    return {
-      ...PROVIDERS.anthropic, // Use Anthropic defaults (header: x-api-key)
-      format: "claude",
-      baseUrl: ANTHROPIC_COMPATIBLE_DEFAULTS.baseUrl,
-    };
-  }
-  return PROVIDERS[provider] || PROVIDERS.openai;
+  return PROVIDERS[provider];
 }
 
 // Get target format for provider
 export function getTargetFormat(provider, credentials = null) {
-  if (isOpenAICompatible(provider)) {
-    return resolveOpenAICompatibleApiType(provider, credentials) === "responses" ? "openai-responses" : "openai";
-  }
-  if (isAnthropicCompatible(provider)) {
-    return "claude";
-  }
   const config = getProviderConfig(provider, credentials);
   return config.format || "openai";
 }

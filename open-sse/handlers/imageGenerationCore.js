@@ -1,7 +1,7 @@
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
 import { HTTP_STATUS } from "../config/runtimeConfig.js";
 import { refreshWithRetry } from "../services/tokenRefresh.js";
-import { getExecutor } from "../executors/index.js";
+import { getExecutor, hasSpecializedExecutor } from "../executors/index.js";
 import { getImageAdapter } from "./imageProviders/index.js";
 import { urlToBase64 } from "./imageProviders/_base.js";
 
@@ -119,9 +119,9 @@ export async function handleImageGenerationCore({
   }
 
   // Handle 401/403 — try token refresh (skipped for noAuth providers)
-  const executor = getExecutor(provider);
+  const executor = hasSpecializedExecutor(provider) ? getExecutor(provider) : null;
   if (
-    !executor?.noAuth &&
+    executor && !executor.noAuth &&
     !adapter.noAuth &&
     (providerResponse.status === HTTP_STATUS.UNAUTHORIZED ||
       providerResponse.status === HTTP_STATUS.FORBIDDEN)

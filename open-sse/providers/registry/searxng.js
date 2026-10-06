@@ -10,11 +10,9 @@ export default {
     textIcon: "SX",
     website: "https://docs.searxng.org"
   },
-  category: "freeTier",
+  category: "apikey",
   authType: "none",
-  serviceKinds: [
-    "webSearch"
-  ],
+  serviceKinds: ["webSearch"],
   noAuth: true,
   searchConfig: {
     baseUrl: SEARXNG_URL,

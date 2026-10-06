@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,7 +15,8 @@
 
 # next.js
 /.next/
-/.next-cli-build/
+/.next-*/
+/.opencode-playwright/
 /out/
 cli/.build-home/
 product
@@ -49,8 +50,6 @@ data/
 logs/*
 source/*
 .cursor/*
-docs/*
-!docs/ARCHITECTURE.md
 test/*
 open-sse/test/*
 RM.vn.md
@@ -60,7 +59,6 @@ PUBLIC.md
 Thanks.md
 PUBLIC.en.md
 PR/*
-package-lock.json
 
 
 #Ignore vscode AI rules
@@ -70,8 +68,6 @@ deploy*.sh
 ecosystem.config.*
 
 scripts/agSniffer/*
-gitbooks/*
-gitbook/README.md
 
 # Refactor backup reference (do not bundle/lint)
 open-sse.old/

@@ -31,8 +31,6 @@ const PUBLIC_API_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/status",
-  "/api/auth/oidc",
-  "/api/auth/saml",
   "/api/version",
   "/api/settings/require-login",
 ];
@@ -47,9 +45,6 @@ const ALWAYS_PROTECTED = [
   "/api/settings/database",
   "/api/version/shutdown",
   "/api/version/update",
-  "/api/oauth/cursor/auto-import",
-  "/api/oauth/kiro/auto-import",
-  "/api/oauth/zed/auto-import",
 ];
 
 // Require auth, but allow through if requireLogin is disabled
@@ -57,7 +52,6 @@ const PROTECTED_API_PATHS = [
   "/api/settings",
   "/api/keys",
   "/api/providers",
-  "/api/provider-nodes",
   "/api/proxy-pools",
   "/api/combos",
   "/api/models",
@@ -67,7 +61,6 @@ const PROTECTED_API_PATHS = [
   "/api/media-providers",
   "/api/pricing",
   "/api/tags",
-  "/api/cli-tools",
   "/api/mcp",
   "/api/translator",
   "/api/tunnel",
@@ -75,22 +68,10 @@ const PROTECTED_API_PATHS = [
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
-  "/api/cli-tools/cowork-settings",
-  "/api/cli-tools/antigravity-mitm",
   "/api/mcp/",
-  "/api/tunnel/tailscale-install",
-  "/api/tunnel/tailscale-enable",
-  "/api/tunnel/tailscale-disable",
-  "/api/tunnel/tailscale-check",
   "/api/tunnel/enable",
   "/api/tunnel/disable",
-  "/api/oauth/cursor/auto-import",
-  "/api/oauth/kiro/auto-import",
-  "/api/oauth/zed/auto-import",
   "/api/auth/reset-password",
-  "/api/headroom/start",
-  "/api/headroom/stop",
-  "/api/headroom/proxy",
 ];
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -268,12 +249,11 @@ export async function proxy(request) {
         requireLogin = settings.requireLogin !== false;
         tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
 
-        // Block tunnel/tailscale access if disabled (redirect to login)
+        // Block tunnel access if disabled (redirect to login)
         if (!tunnelDashboardAccess) {
           const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
           const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
-          const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
-          if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
+          if (tunnelHost && host === tunnelHost) {
             return NextResponse.redirect(new URL("/login", request.url));
           }
         }

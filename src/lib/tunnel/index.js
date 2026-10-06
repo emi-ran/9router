@@ -16,31 +16,6 @@ export {
 } from "./cloudflare/cloudflared.js";
 export { probeUrlAlive as probeCloudflareAlive } from "./cloudflare/healthCheck.js";
 
-// Tailscale service
-export {
-  enableTailscale,
-  disableTailscale,
-  getTailscaleStatus,
-  isTailscaleReconnecting,
-  getTailscaleService,
-} from "./tailscale/manager.js";
-export {
-  isTailscaleInstalled,
-  isTailscaleRunning,
-  isTailscaleRunningStrict,
-  isTailscaleLoggedIn,
-  isTailscaleLoggedInStrict,
-  isSystemDaemonRunning,
-  isDaemonAlive,
-  startFunnel,
-  getTailscaleBin,
-  installTailscale,
-  startLogin,
-  startDaemonWithPassword,
-  TAILSCALE_SOCKET,
-} from "./tailscale/tailscale.js";
-export { probeUrlAlive as probeTailscaleAlive } from "./tailscale/healthCheck.js";
-
 // Shared
 export { loadState, generateShortId } from "./shared/state.js";
 export { checkInternet } from "./shared/internetCheck.js";

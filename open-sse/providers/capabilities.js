@@ -179,19 +179,11 @@ const DEVIN_CLI_GPT_CAPS = { vision: true, reasoning: true, search: true, thinki
 export const PROVIDER_CAPABILITIES = {
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
-  "nvidia": {
-    "minimaxai/minimax-m2.7": { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 131072 },
-    "minimaxai/minimax-m3": { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 512000, maxOutput: 131072 },
-    "z-ai/glm-5.2": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 128000 },
-    "deepseek-ai/deepseek-v4-pro": { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 65536 },
-    "deepseek-ai/deepseek-v4-flash": { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 65536 },
-  },
+
   // glm-5.3-flash on OpenCode Go is served by a backend that rejects the z.ai
   // `thinking` object (400: unknown field "thinking") and wants reasoning_effort.
   // Overrides the global entry, whose z.ai shape is correct for z.ai itself.
-  "opencode-go": {
-    "glm-5.3-flash": { vision: true, videoInput: true, pdf: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 131072 },
-  },
+
   "codex": {
     "gpt-6-astra":               { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
     "gpt-6-sol":                 { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 },
@@ -209,76 +201,16 @@ export const PROVIDER_CAPABILITIES = {
     "gpt-5.6-luna":              CODEX_GPT_56_DEFAULT_CAPS,
     "gpt-5.6-luna-review":       CODEX_GPT_56_DEFAULT_CAPS,
   },
-  "kiro": {
-    "gpt-5.6-sol": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-terra": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-luna": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-sol-thinking": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-terra-thinking": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-luna-thinking": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-sol-agentic": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-terra-agentic": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-luna-agentic": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-sol-thinking-agentic": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-terra-thinking-agentic": KIRO_GPT_5_6_CAPABILITIES,
-    "gpt-5.6-luna-thinking-agentic": KIRO_GPT_5_6_CAPABILITIES,
-  },
-  "devin-cli": {
-    "gpt-5.4-high": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.4-medium": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.4-low": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.5-xhigh": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.5-high": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.5-medium": DEVIN_CLI_GPT_CAPS,
-    "gpt-5.5-low": DEVIN_CLI_GPT_CAPS,
-  },
+
   // CodeBuddy.cn — authoritative per-model metadata from the gateway's model
   // config (contextWindow=maxInputTokens, maxOutput=maxOutputTokens, vision=
   // supportsImages). Every model reasons via OpenAI-style reasoning_effort
   // (see registry thinkingFormat). For thinkingCanDisable use the server's
   // reasoning.canDisableThinking flag — see the note in the codebuddy-cn block
   // below; it is NOT the inverse of onlyReasoning.
-  "codebuddy-cn": {
-    "glm-5.2":            { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1000000, maxOutput: 48000 },
-    "glm-5.1":            { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 48000 },
-    "glm-5.0":            { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 48000 },
-    // maxOutput 64000 per both the plugin-baked fallback and the live server
-    // table (the old 38000 had no source and truncated output).
-    "glm-5v-turbo":       { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 64000 },
-    "glm-4.7":            { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 48000 },
-    "minimax-m3":         { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 512000, maxOutput: 128000 },
-    "kimi-k2.7":          { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 256000, maxOutput: 32000 },
-    "kimi-k2.6":          { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 256000, maxOutput: 32000 },
-    "kimi-k2.5":          { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 164000, maxOutput: 32000 },
-    "hy3-preview":        { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 192000, maxOutput: 64000 },
-    "deepseek-v4-flash":  { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 50000 },
-    "deepseek-v3-2-volc": { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 96000, maxOutput: 32000 },
-    // Per-model values mirror the server's product-config payload (the plugin
-    // fetches it from copilot.tencent.com; the `models[]` entries carry
-    // maxInputTokens/maxOutputTokens/supportsImages). contextWindow =
-    // maxInputTokens, maxOutput = maxOutputTokens. Where the server and the
-    // plugin-baked fallback disagree, the server table wins.
-    // ⚠️ thinkingCanDisable maps to the server's reasoning.canDisableThinking —
-    // it is NOT the inverse of onlyReasoning. onlyReasoning means "thinking is
-    // on by default"; canDisableThinking means "it CAN be turned off". glm-5.3
-    // and glm-5.3-flash are onlyReasoning:true BUT canDisableThinking:true, so
-    // their thinking is switchable; the hy* models are forced always-on.
-    "hy3":                { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 192000, maxOutput: 64000 },
-    "hy4-preview":        { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 64000 },
-    "glm-5.3":            { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1000000, maxOutput: 48000 },
-    "glm-5.3-flash":      { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1000000, maxOutput: 32000 },
-    "kimi-k3-1":          { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 32000 },
-    "deepseek-v4-pro":    { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1000000, maxOutput: 50000 },
-    // deepseek-v4.1-flash replaces v4-flash (dropped from the server list;
-    // the old endpoint still answers 200 but the published list is the
-    // contract). maxOutput 128000 per the server's product-config payload.
-    "deepseek-v4.1-flash": { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: true, contextWindow: 1000000, maxOutput: 128000 },
-  },
+
   // Poolside Laguna — OpenAI-compatible, all reasoning-capable (32K max output).
-  "poolside": {
-    "laguna-s-2.1":  { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 },
-    "laguna-xs-2.1": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 },
-  },
+
   // Ollama Cloud — the generic *deepseek-v4* pattern misses the vision badge
   // the library page publishes for this model (text+image in, 1M context).
   // ponytail: thinkingFormat stays "deepseek" to preserve today's body shape;
@@ -286,9 +218,7 @@ export const PROVIDER_CAPABILITIES = {
   // low/medium/high/max), which no format in thinkingUnified.js emits yet —
   // openai-to-ollama.js drops it. Wire a "think" format when thinking on
   // Ollama Cloud is actually needed.
-  "ollama": {
-    "deepseek-v4.1-flash:cloud": { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
-  },
+
 };
 
 // Qoder CN serves the identical model catalog from the CN gateway, so it shares
@@ -455,7 +385,6 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*laguna-s-2.1*free*", caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
   { pattern: "*laguna-s-2.1*",  caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 } },
   { pattern: "*laguna*",        caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 } },
-
 
   // ── OpenCode Free Muse Spark (multimodal text+image; OpenAI Responses reasoning supports up to xhigh) ─
   { pattern: "*muse*spark*",    caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 1048576, maxOutput: 131072 } },

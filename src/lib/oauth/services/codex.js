@@ -1,7 +1,6 @@
 import open from "open";
 import { OAuthService } from "./oauth.js";
 import { CODEX_CONFIG } from "../constants/oauth.js";
-import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { generatePKCE } from "../utils/pkce.js";
 import { spinner as createSpinner } from "../utils/ui.js";
@@ -41,29 +40,7 @@ export class CodexService extends OAuthService {
    * Save Codex tokens to server
    */
   async saveTokens(tokens) {
-    const { server, token, userId } = getServerCredentials();
-
-    const response = await fetch(`${server}/api/cli/providers/codex`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        "X-User-Id": userId,
-      },
-      body: JSON.stringify({
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresIn: tokens.expires_in,
-        lastRefreshAt: new Date().toISOString(),
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Failed to save tokens");
-    }
-
-    return await response.json();
+    throw new Error("CLI credential saving is unavailable; connect through dashboard OAuth");
   }
 
   /**

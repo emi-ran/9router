@@ -8,7 +8,12 @@
 
 # Dependencies and build output
 node_modules
+**/node_modules
 .next
+**/.next
+**/.next-*
+.opencode-playwright
+**/.opencode-playwright
 out
 build
 dist
@@ -19,11 +24,8 @@ data
 logs
 
 # Local env files (inject at runtime via --env-file or -e)
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+**/.env*
+!.env.example
 
 # Debug logs
 npm-debug.log*

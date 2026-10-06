@@ -13,10 +13,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch",
-    "webFetch"
-  ],
+  serviceKinds: ["webSearch"],
   searchConfig: {
     baseUrl: "https://api.exa.ai/search",
     method: "POST",
@@ -33,18 +30,5 @@ export default {
     timeoutMs: 10000,
     cacheTTLMs: 300000
   },
-  fetchConfig: {
-    baseUrl: "https://api.exa.ai/contents",
-    method: "POST",
-    authType: "apikey",
-    authHeader: "x-api-key",
-    costPerQuery: 0.001,
-    freeMonthlyQuota: 1000,
-    formats: [
-      "text",
-      "markdown"
-    ],
-    maxCharacters: 100000,
-    timeoutMs: 15000
-  }
+
 };

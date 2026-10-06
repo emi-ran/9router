@@ -13,7 +13,5 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "image"
-  ]
+  serviceKinds: ["image"]
 };

@@ -10,7 +10,7 @@ export default {
     website: "https://github.com/AUTOMATIC1111/stable-diffusion-webui",
   },
   category: "apikey",
-  transport: null,
+
   models: [
     { id: "stable-diffusion-v1-5", name: "Stable Diffusion v1.5", params: ["n","size"], kind: "image" },
     { id: "sdxl-base-1.0", name: "SDXL Base 1.0", params: ["n","size"], kind: "image" },

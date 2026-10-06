@@ -23,7 +23,7 @@ export default {
   hiddenKinds: [
     "tts",
   ],
-  transport: null,
+
   models: [
     { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell", params: [], kind: "image" },
     { id: "black-forest-labs/FLUX.1-dev", name: "FLUX.1 Dev", params: [], kind: "image" },
@@ -48,10 +48,9 @@ export default {
     { id: "krea/Krea-2-Turbo", name: "Krea 2 Turbo", params: [], kind: "image" },
     { id: "HiDream-ai/HiDream-I1-Fast", name: "HiDream I1 Fast", params: [], kind: "image" },
     { id: "playgroundai/playground-v2.5-1024px-aesthetic", name: "Playground v2.5", params: [], kind: "image" },
-    { id: "openai/whisper-large-v3", name: "Whisper Large v3 (HF)", params: [], kind: "stt" },
-    { id: "openai/whisper-large-v3-turbo", name: "Whisper Large v3 Turbo (HF)", params: [], kind: "stt" },
+
   ],
-  serviceKinds: ["image", "stt"],
+  serviceKinds: ["image"],
   // Inference Providers router. The router is addressed as
   // `<baseUrl>/<provider>/<providerModelId>` — see open-sse/handlers/imageProviders/huggingface.js.
   // `modelMap` resolves a Hub model id to the provider-resolved id the router expects.
@@ -95,10 +94,5 @@ export default {
   // No `params` are declared: the router's ASR payload carries only `inputs` and
   // `parameters.return_timestamps` / `parameters.generation_parameters` — it has no
   // language field, so a UI-declared "language" would be silently dropped.
-  sttConfig: {
-    baseUrl: "https://router.huggingface.co/hf-inference/models",
-    authType: "apikey",
-    authHeader: "bearer",
-    format: "huggingface-asr",
-  },
+
 };

@@ -19,7 +19,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: null,
+
   models: [
     { id: "fal-ai/flux/schnell", name: "FLUX Schnell", params: ["n","size"], kind: "image" },
     { id: "fal-ai/flux/dev", name: "FLUX Dev", params: ["n","size"], kind: "image" },

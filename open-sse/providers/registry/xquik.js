@@ -14,9 +14,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: [
-    "webSearch"
-  ],
+  serviceKinds: ["webSearch"],
   searchConfig: {
     baseUrl: "https://xquik.com/api/v1/x/tweets/search",
     validateUrl: "https://xquik.com/api/v1/credits",

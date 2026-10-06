@@ -185,9 +185,7 @@ export const MODEL_PRICING = {
  */
 export const PROVIDER_PRICING = {
   // GitHub Copilot (gh) — explicit override, matches canonical gpt-5.3-codex rate
-  gh: {
-    "gpt-5.3-codex": { input: 1.75, output: 14.00, cached: 0.175, reasoning: 14.00, cache_creation: 1.75 },
-  },
+
   // TokenRouter — exact rates from https://api.tokenrouter.com/api/pricing ($1/1M tokens).
   // Ratio→USD: input = model_ratio×2, output = model_ratio×completion_ratio×2.
   // These override the canonical MODEL_PRICING/PATTERN_PRICING, whose rates often

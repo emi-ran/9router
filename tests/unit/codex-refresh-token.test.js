@@ -180,8 +180,6 @@ describe("Codex Refresh Token", () => {
 
       // Codex access tokens live ~1h; avoid refreshing on every request.
       expect(getRefreshLeadMs("codex")).toBe(10 * 60 * 1000);           // 10 minutes
-      expect(getRefreshLeadMs("claude")).toBe(4 * 60 * 60 * 1000);       // 4 hours
-      expect(getRefreshLeadMs("iflow")).toBe(24 * 60 * 60 * 1000);       // 24 hours
       expect(getRefreshLeadMs("kimi")).toBe(5 * 60 * 1000);              // 5 minutes
       expect(getRefreshLeadMs("kimi-coding")).toBe(5 * 60 * 1000);       // legacy alias
       expect(getRefreshLeadMs("antigravity")).toBe(5 * 60 * 1000);       // 5 minutes

@@ -30,7 +30,7 @@ export async function POST(request) {
     if (!isCliRequest(request) && !(await verifyDashboardPassword(password))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
-    await importDb(payload);
+    const res = await importDb(payload);
 
     // Ensure proxy settings take effect immediately after a DB import.
     try {
@@ -40,7 +40,7 @@ export async function POST(request) {
       console.warn("[Settings][DatabaseImport] Failed to re-apply outbound proxy env:", err);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, summary: res?.__compatibilitySummary });
   } catch (error) {
     console.log("Error importing database:", error);
     return NextResponse.json(

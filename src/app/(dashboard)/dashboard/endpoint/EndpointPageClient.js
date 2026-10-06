@@ -12,10 +12,9 @@ import {
   REACHABLE_MISS_THRESHOLD,
   CLIENT_PING_FAST_MS,
 } from "./endpointConstants";
-import { clientPingUrl, clientPingAny } from "./endpointPing";
+import { clientPingAny } from "./endpointPing";
 import useSettingsStore from "@/store/settingsStore";
 import EndpointRow from "./components/EndpointRow";
-import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
 export default function APIPageClient({ machineId }) {
@@ -43,37 +42,15 @@ export default function APIPageClient({ machineId }) {
   const [showEnableTunnelModal, setShowEnableTunnelModal] = useState(false);
   const [showDisableTunnelModal, setShowDisableTunnelModal] = useState(false);
 
-  // Tailscale state
-  const [tsEnabled, setTsEnabled] = useState(false);
-  const [tsReachable, setTsReachable] = useState(false);
-  const [tsUrl, setTsUrl] = useState("");
-  const [tsLoading, setTsLoading] = useState(false);
-  const [tsProgress, setTsProgress] = useState("");
-  const [tsStatus, setTsStatus] = useState(null);
-  const [tsAuthUrl, setTsAuthUrl] = useState("");
-  const [tsAuthLabel, setTsAuthLabel] = useState("");
-  const [tsInstalled, setTsInstalled] = useState(null); // null=checking, true/false
-  const [tsInstalling, setTsInstalling] = useState(false);
-  const [tsInstallLog, setTsInstallLog] = useState([]);
-  const [tsSudoPassword, setTsSudoPassword] = useState("");
-  const [tsConnecting, setTsConnecting] = useState(false);
-  const [showTsModal, setShowTsModal] = useState(false);
-  const [showDisableTsModal, setShowDisableTsModal] = useState(false);
-  const tsLogRef = useRef(null);
-
   // Debounce reachable=false: server may briefly return false during background refresh.
   // Only flip UI to "reconnecting" after N consecutive misses to avoid spinner flicker.
   const tunnelMissRef = useRef(0);
-  const tsMissRef = useRef(0);
   // Browser-side reachable cache (independent of backend DNS quirks)
   const tunnelClientReachableRef = useRef(false);
-  const tsClientReachableRef = useRef(false);
   // Track whether reachable=true was ever observed in this session.
   // Distinguishes "Checking..." (initial cold cache) from "Reconnecting..." (lost connection).
   const tunnelEverReachableRef = useRef(false);
-  const tsEverReachableRef = useRef(false);
   const [tunnelEverReachable, setTunnelEverReachable] = useState(false);
-  const [tsEverReachable, setTsEverReachable] = useState(false);
 
   // API key visibility toggle state
   const [visibleKeys, setVisibleKeys] = useState(new Set());
@@ -93,11 +70,6 @@ export default function APIPageClient({ machineId }) {
     ? "Enable \"Require login\" and set a custom password before activating the tunnel."
     : "Change the default dashboard password before activating the tunnel.";
 
-  // Auto-scroll install log
-  useEffect(() => {
-    if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
-  }, [tsInstallLog]);
-
   useEffect(() => {
     fetchData();
     loadSettings();
@@ -106,11 +78,8 @@ export default function APIPageClient({ machineId }) {
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
-    const anyEnabled = tunnelEnabled || tsEnabled;
-    if (!anyEnabled) return;
-    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
-    const allHealthy = tunnelHealthy && tsHealthy;
+    if (!tunnelEnabled) return;
+    const allHealthy = tunnelReachable;
     const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
     document.addEventListener("visibilitychange", onVisible);
     if (allHealthy) return () => document.removeEventListener("visibilitychange", onVisible);
@@ -119,10 +88,10 @@ export default function APIPageClient({ machineId }) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnelEnabled, tsEnabled, tunnelReachable, tsReachable]);
+  }, [tunnelEnabled, tunnelReachable]);
 
-  // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
-  // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
+  // Browser-side periodic ping: probes tunnel URLs directly so UI stays
+  // "reachable" even when backend DNS (1.1.1.1) hiccups on *.trycloudflare.com.
   // Adaptive: slow when healthy, fast when degraded; pause when tab hidden.
   useEffect(() => {
     const probeBoth = async () => {
@@ -135,24 +104,15 @@ export default function APIPageClient({ machineId }) {
       } else {
         tunnelClientReachableRef.current = false;
       }
-      if (tsEnabled && tsUrl) {
-        const ok = await clientPingUrl(tsUrl);
-        tsClientReachableRef.current = ok;
-        if (ok) { tsMissRef.current = 0; setTsReachable(true); if (!tsEverReachableRef.current) { tsEverReachableRef.current = true; setTsEverReachable(true); } }
-        else { tsMissRef.current += 1; if (tsMissRef.current >= REACHABLE_MISS_THRESHOLD) setTsReachable(false); }
-      } else {
-        tsClientReachableRef.current = false;
-      }
     };
-    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tsEnabled && tsUrl);
+    const anyEnabled = tunnelEnabled && (tunnelUrl || tunnelPublicUrl);
     if (!anyEnabled) return;
     probeBoth();
     const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
-    if (tunnelHealthy && tsHealthy) return;
+    if (tunnelHealthy) return;
     const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tsEnabled, tsUrl, tunnelReachable, tsReachable]);
+  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tunnelReachable]);
 
   // Client-side reachable only (server no longer probes; watchdog handles backend health).
   // Miss-debounce: only flip to false after N consecutive misses.
@@ -184,11 +144,6 @@ export default function APIPageClient({ machineId }) {
       setTunnelEnabled(tEnabled);
       updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
 
-      const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-      const tsUrlVal = data.tailscale?.tunnelUrl || "";
-      setTsUrl(tsUrlVal);
-      setTsEnabled(tsEn);
-      updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
     } catch { /* ignore poll errors */ }
   };
 
@@ -214,11 +169,6 @@ export default function APIPageClient({ machineId }) {
         setTunnelEnabled(tEnabled);
         updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
 
-        const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-        const tsUrlVal = data.tailscale?.tunnelUrl || "";
-        setTsUrl(tsUrlVal);
-        setTsEnabled(tsEn);
-        updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
       }
     } catch (error) {
       console.log("Error loading settings:", error);
@@ -387,230 +337,6 @@ export default function APIPageClient({ machineId }) {
       setTunnelStatus({ type: "error", message: error.message });
     } finally {
       setTunnelLoading(false);
-    }
-  };
-
-  // u2500u2500u2500 Tailscale handlers
-  const checkTailscaleInstalled = async () => {
-    setTsInstalled(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-check");
-      if (res.ok) {
-        const data = await res.json();
-        setTsInstalled(data.installed);
-        return data;
-      }
-    } catch { /* ignore */ }
-    setTsInstalled(false);
-    return { installed: false };
-  };
-
-  const handleInstallTailscale = async () => {
-    setTsInstalling(true);
-    setTsStatus(null);
-    setTsInstallLog([]);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-install", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sudoPassword: tsSudoPassword }),
-      });
-      setTsSudoPassword("");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-        for (const part of parts) {
-          const lines = part.split("\n");
-          let event = "progress";
-          let data = null;
-          for (const line of lines) {
-            if (line.startsWith("event: ")) event = line.slice(7).trim();
-            if (line.startsWith("data: ")) {
-              try { data = JSON.parse(line.slice(6)); } catch { /* skip */ }
-            }
-          }
-          if (!data) continue;
-          if (event === "progress") {
-            setTsInstallLog((prev) => [...prev.slice(-50), data.message]);
-          } else if (event === "done") {
-            setTsInstalled(true);
-            setTsInstalling(false);
-            setShowTsModal(false);
-            handleConnectTailscale();
-            return;
-          } else if (event === "error") {
-            setTsStatus({ type: "error", message: data.error || "Install failed" });
-          }
-        }
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsInstalling(false);
-    }
-  };
-
-  // Ping Tailscale health until reachable
-  const pingTsHealth = async (url) => {
-    setTsProgress("Waiting for Tailscale ready...");
-    const healthUrl = `${url}/api/health`;
-    const start = Date.now();
-    while (Date.now() - start < TUNNEL_PING_MAX_MS) {
-      await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
-      try {
-        const ping = await fetch(healthUrl, { mode: "no-cors", cache: "no-store" });
-        if (ping.ok || ping.type === "opaque") return true;
-      } catch { /* not ready yet */ }
-    }
-    return false;
-  };
-
-  // Show inline login button instead of auto-opening popup (browsers block popups
-  // opened after async work because the user gesture is lost).
-  const requestUserAuth = (url, label) => {
-    setTsAuthUrl(url);
-    setTsAuthLabel(label);
-  };
-
-  const clearUserAuth = () => {
-    setTsAuthUrl("");
-    setTsAuthLabel("");
-  };
-
-  const handleConnectTailscale = async () => {
-    setShowTsModal(false);
-    setTsConnecting(true);
-    setTsLoading(true);
-    setTsStatus(null);
-    setTsProgress("Connecting...");
-    clearUserAuth();
-    try {
-      const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setTsUrl(data.tunnelUrl || "");
-        const reachable = await pingTsHealth(data.tunnelUrl);
-        setTsEnabled(true);
-        setTsStatus(reachable ? null : { type: "warning", message: "Connected but not reachable yet." });
-        return;
-      }
-
-      if (data.needsLogin && data.authUrl) {
-        requestUserAuth(data.authUrl, "Open Login Page");
-        setTsProgress("Login required — click \"Open Login Page\" to continue");
-        for (let i = 0; i < 40; i++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          try {
-            const r2 = await fetch("/api/tunnel/tailscale-check");
-            if (r2.ok) {
-              const check = await r2.json();
-              if (check.loggedIn) {
-                clearUserAuth();
-                setTsProgress("Starting funnel...");
-                const res2 = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-                const data2 = await res2.json();
-                if (res2.ok && data2.success) {
-                  setTsUrl(data2.tunnelUrl || "");
-                  const ok2 = await pingTsHealth(data2.tunnelUrl);
-                  setTsEnabled(true);
-                  setTsStatus(ok2 ? null : { type: "warning", message: "Connected but not reachable yet." });
-                } else if (data2.funnelNotEnabled && data2.enableUrl) {
-                  await pollFunnelEnable(data2.enableUrl);
-                } else {
-                  setTsStatus({ type: "error", message: data2.error || "Failed to start funnel" });
-                }
-                return;
-              }
-            }
-          } catch { /* retry */ }
-        }
-        clearUserAuth();
-        setTsStatus({ type: "error", message: "Login timed out. Please try again." });
-        return;
-      }
-
-      if (data.funnelNotEnabled && data.enableUrl) {
-        await pollFunnelEnable(data.enableUrl);
-        return;
-      }
-
-      setTsStatus({ type: "error", message: data.error || "Failed to connect" });
-    } catch (error) {
-      setTsStatus({ type: "error", message: error.message });
-    } finally {
-      setTsLoading(false);
-      setTsConnecting(false);
-      setTsProgress("");
-      clearUserAuth();
-    }
-  };
-
-  const pollFunnelEnable = async (enableUrl) => {
-    requestUserAuth(enableUrl, "Open Funnel Settings");
-    setTsProgress("Click \"Open Funnel Settings\" to enable Funnel...");
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          clearUserAuth();
-          setTsUrl(data.tunnelUrl || "");
-          const ok3 = await pingTsHealth(data.tunnelUrl);
-          setTsEnabled(true);
-          setTsStatus(ok3 ? null : { type: "warning", message: "Connected but not reachable yet." });
-          return;
-        }
-        if (data.funnelNotEnabled) continue;
-        if (data.error) {
-          clearUserAuth();
-          setTsStatus({ type: "error", message: data.error });
-          return;
-        }
-      } catch { /* retry */ }
-    }
-    clearUserAuth();
-    setTsStatus({ type: "error", message: "Timed out waiting for Funnel to be enabled." });
-  };
-
-  const handleDisableTailscale = async () => {
-    setTsLoading(true);
-    setTsStatus(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-disable", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTsEnabled(false);
-        setTsUrl("");
-        setShowDisableTsModal(false);
-        setTsStatus({ type: "success", message: "Tailscale disabled" });
-      } else {
-        setTsStatus({ type: "error", message: data.error || "Failed to disable Tailscale" });
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsLoading(false);
-    }
-  };
-
-  const handleOpenTsModal = async () => {
-    setTsStatus(null);
-    setTsInstallLog([]);
-    const data = await checkTailscaleInstalled();
-    if (data?.installed && data?.hasCachedPassword) {
-      handleConnectTailscale();
-    } else {
-      setShowTsModal(true);
     }
   };
 
@@ -827,104 +553,10 @@ export default function APIPageClient({ machineId }) {
               )}
             </div>
           </div>
-          {/* Tailscale */}
-          <div className="flex items-center gap-2 w-full min-w-0">
-            <span className={`text-xs font-mono px-1.5 py-1 rounded shrink-0 min-w-[70px] sm:min-w-[80px] text-center ${
-              tsEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tailscale</span>
-            {tsEnabled && !tsLoading && tsReachable ? (
-              <Input value={`${tsUrl}/v1`} readOnly className="flex-1 min-w-0 font-mono text-sm" />
-            ) : tsEnabled && !tsLoading && !tsReachable ? (
-              <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400 truncate">
-                <span className="material-symbols-outlined animate-spin text-sm shrink-0">progress_activity</span>
-                <span className="truncate">{tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}</span>
-              </div>
-            ) : (tsLoading || tsConnecting) ? (
-              <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted truncate">
-                <span className="material-symbols-outlined animate-spin text-sm shrink-0">progress_activity</span>
-                <span className="truncate">{tsProgress || "Connecting..."}</span>
-              </div>
-            ) : tsStatus?.type === "error" ? (
-              <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400 truncate">
-                <span className="material-symbols-outlined text-sm shrink-0">error</span>
-                <span className="truncate">{tsStatus.message}</span>
-              </div>
-            ) : (
-              <div className="flex-1 min-w-0" />
-            )}
-            <div className="flex items-center gap-1 shrink-0">
-              {tsEnabled && !tsLoading && tsReachable ? (
-                <>
-                  <button
-                    onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
-                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0 flex items-center justify-center"
-                    title="Copy URL"
-                    aria-label="Copy URL"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowDisableTsModal(true)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0 flex items-center justify-center"
-                    title="Disable Tailscale"
-                    aria-label="Disable Tailscale"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                  </button>
-                </>
-              ) : tsEnabled && !tsLoading && !tsReachable ? (
-                <button
-                  onClick={() => setShowDisableTsModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0 flex items-center justify-center"
-                  title="Disable Tailscale"
-                  aria-label="Disable Tailscale"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              ) : (tsLoading || tsConnecting) ? (
-                <>
-                  {tsAuthUrl && (
-                    <Button
-                      size="sm"
-                      icon="open_in_new"
-                      onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
-                    >
-                      {tsAuthLabel || "Open"}
-                    </Button>
-                  )}
-                  <button
-                    onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0 flex items-center justify-center"
-                    title="Stop"
-                    aria-label="Stop"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                  </button>
-                </>
-              ) : tsStatus?.type === "error" ? (
-                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
-              ) : (
-                <Button
-                  size="sm"
-                  icon="vpn_lock"
-                  onClick={() => {
-                    if (isLoginUnsafe) {
-                      setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
-                      return;
-                    }
-                    handleOpenTsModal();
-                  }}
-                  className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
-                >
-                  Enable
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Pre-enable security gate banner */}
-        {isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
+        {isLoginUnsafe && !tunnelEnabled && (
           <div className="mt-4">
             <SecurityWarning
               message={unsafeReason}
@@ -933,8 +565,8 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
 
-        {/* Security warnings when tunnel or tailscale is active */}
-        {(tunnelEnabled || tsEnabled) && (
+        {/* Security warnings when tunnel is active */}
+        {tunnelEnabled && (
           <div className="mt-4 flex flex-col gap-2">
             {!requireApiKey && (
               <SecurityWarning
@@ -959,7 +591,7 @@ export default function APIPageClient({ machineId }) {
         )}
 
         {/* Tunnel dashboard access option */}
-        {(tunnelEnabled || tsEnabled) && (
+        {tunnelEnabled && (
           <div className="mt-4 pt-4 border-t border-border flex items-center gap-3">
             <Toggle
               checked={tunnelDashboardAccess}
@@ -967,7 +599,7 @@ export default function APIPageClient({ machineId }) {
             />
             <div className="flex items-center gap-1.5">
               <p className="font-medium text-sm">Allow dashboard access via tunnel</p>
-              <Tooltip text="When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked." />
+              <Tooltip text="When enabled, the dashboard can be accessed through your tunnel URL (login still required). When disabled, dashboard access via tunnel is completely blocked." />
             </div>
           </div>
         )}
@@ -1216,91 +848,6 @@ export default function APIPageClient({ machineId }) {
               {tunnelLoading ? "Disabling..." : "Disable"}
             </Button>
             <Button onClick={() => setShowDisableTunnelModal(false)} variant="ghost" fullWidth disabled={tunnelLoading}>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Tailscale Modal */}
-      <Modal
-        isOpen={showTsModal}
-        title="Tailscale Funnel"
-        onClose={() => { if (!tsInstalling) { setShowTsModal(false); setTsSudoPassword(""); setTsStatus(null); } }}
-      >
-        <div className="flex flex-col gap-4">
-          {/* Checking state */}
-          {tsInstalled === null && (
-            <p className="text-sm text-text-muted flex items-center gap-2">
-              <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-              Checking...
-            </p>
-          )}
-
-          {/* Not installed */}
-          {tsInstalled === false && !tsInstalling && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-muted">Tailscale is not installed. Install it to enable Funnel.</p>
-              <div className="flex gap-2">
-                <Button onClick={handleInstallTailscale} fullWidth>
-                  Install Tailscale
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
-            </div>
-          )}
-
-          {/* Installing with progress log */}
-          {tsInstalling && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-sm text-text-muted">
-                <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                Installing Tailscale...
-              </div>
-              {tsInstallLog.length > 0 && (
-                <div ref={tsLogRef} className="bg-black/5 dark:bg-white/5 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
-                  {tsInstallLog.map((line, i) => (
-                    <div key={i}>{line}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Installed: show Connect button */}
-          {tsInstalled === true && !tsInstalling && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                Tailscale installed
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleConnectTailscale()}
-                  fullWidth
-                >
-                  Connect
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
-            </div>
-          )}
-
-          {tsStatus && <StatusAlert status={tsStatus} />}
-        </div>
-      </Modal>
-
-      {/* Disable Tailscale Modal */}
-      <Modal
-        isOpen={showDisableTsModal}
-        title="Disable Tailscale"
-        onClose={() => !tsLoading && setShowDisableTsModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">Tailscale Funnel will be stopped. Remote access via Tailscale URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTailscale} fullWidth disabled={tsLoading} variant="danger">
-              {tsLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTsModal(false)} variant="ghost" fullWidth disabled={tsLoading}>Cancel</Button>
           </div>
         </div>
       </Modal>

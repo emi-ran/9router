@@ -7,7 +7,7 @@ import {
   getProxyPoolById,
 } from "@/models";
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
-import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
+import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
 
 export const dynamic = "force-dynamic";
@@ -51,30 +51,7 @@ export async function GET() {
   try {
     const connections = await getProviderConnections();
 
-    // Build nodeNameMap for compatible providers (id → name)
-    let nodeNameMap = {};
-    try {
-      const nodes = await getProviderNodes();
-      for (const node of nodes) {
-        if (node.id && node.name) nodeNameMap[node.id] = node.name;
-      }
-    } catch { }
-
-    // Hide sensitive fields, enrich name for compatible providers
-    const safeConnections = connections.map(c => {
-      const isCompatible = isOpenAICompatibleProvider(c.provider) || isAnthropicCompatibleProvider(c.provider);
-      const name = isCompatible
-        ? (c.name || nodeNameMap[c.provider] || c.providerSpecificData?.nodeName || c.provider)
-        : c.name;
-      return {
-        ...c,
-        name,
-        apiKey: undefined,
-        accessToken: undefined,
-        refreshToken: undefined,
-        idToken: undefined,
-      };
-    });
+    const safeConnections = connections.filter(c => AI_PROVIDERS[c.provider]).map(c => ({ ...c, apiKey: undefined, accessToken: undefined, refreshToken: undefined, idToken: undefined }));
 
     return NextResponse.json({ connections: safeConnections });
   } catch (error) {
@@ -108,15 +85,12 @@ export async function POST(request) {
     const isValidProvider = APIKEY_PROVIDERS[provider] ||
       FREE_TIER_PROVIDERS[provider] ||
       supportsApiKeyMode ||
-      isWebCookieProvider ||
-      isOpenAICompatibleProvider(provider) ||
-      isAnthropicCompatibleProvider(provider) ||
-      isCustomEmbeddingProvider(provider);
+      isWebCookieProvider;
 
     if (!provider || !isValidProvider) {
       return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
     }
-    if (!apiKey && provider !== "ollama-local") {
+    if (!apiKey && !AI_PROVIDERS[provider]?.noAuth) {
       return NextResponse.json({ error: `${isWebCookieProvider ? "Cookie value" : "API Key"} is required` }, { status: 400 });
     }
     const connectionName = name || displayName || AI_PROVIDERS[provider]?.name;
@@ -125,41 +99,6 @@ export async function POST(request) {
     }
 
     let providerSpecificData = normalizeProviderSpecificData(provider, body, body.providerSpecificData);
-
-    // Compatible LLM nodes support multiple API-key connections (key pool); runtime
-    // rotates/fails over via getProviderCredentials. Embedding nodes stay single-connection.
-    if (isOpenAICompatibleProvider(provider)) {
-      const node = await getProviderNodeById(provider);
-      if (!node) {
-        return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
-      }
-      providerSpecificData = {
-        prefix: node.prefix,
-        apiType: node.apiType,
-        baseUrl: node.baseUrl,
-        nodeName: node.name,
-      };
-    } else if (isAnthropicCompatibleProvider(provider)) {
-      const node = await getProviderNodeById(provider);
-      if (!node) {
-        return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
-      }
-      providerSpecificData = {
-        prefix: node.prefix,
-        baseUrl: node.baseUrl,
-        nodeName: node.name,
-      };
-    } else if (isCustomEmbeddingProvider(provider)) {
-      const node = await getProviderNodeById(provider);
-      if (!node) {
-        return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
-      }
-      providerSpecificData = {
-        prefix: node.prefix,
-        baseUrl: node.baseUrl,
-        nodeName: node.name,
-      };
-    }
 
     const mergedProviderSpecificData = {
       ...(providerSpecificData || {}),

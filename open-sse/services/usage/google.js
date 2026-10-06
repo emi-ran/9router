@@ -19,100 +19,10 @@ const ANTIGRAVITY_CONFIG = {
  * Uses retrieveUserQuota (same endpoint as `gemini /stats`) returning
  * per-model buckets with remainingFraction + resetTime.
  */
-export async function getGeminiUsage(accessToken, providerSpecificData, proxyOptions = null) {
-  if (!accessToken) {
-    return { plan: "Free", message: "Gemini CLI access token not available." };
-  }
-
-  try {
-    // Resolve project id: prefer connection-stored id, else loadCodeAssist lookup.
-    // #1271: OAuth save stores projectId on the connection, not providerSpecificData.
-    let projectId = normalizeCloudCodeProjectId(providerSpecificData?.projectId);
-    let plan = "Free";
-
-    if (!projectId) {
-      const subInfo = await getGeminiSubscriptionInfo(accessToken, proxyOptions);
-      projectId = normalizeCloudCodeProjectId(subInfo?.cloudaicompanionProject);
-      plan = subInfo?.currentTier?.name || plan;
-    }
-
-    if (!projectId) {
-      return {
-        plan,
-        message: "Gemini CLI project ID not available. Reconnect Gemini CLI, or configure a Google Cloud project with Gemini Code Assist access before checking quota.",
-      };
-    }
-
-    const response = await fetchWithTimeout(
-      U("gemini-cli").quotaUrl,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ project: projectId }),
-      },
-      10000,
-      proxyOptions
-    );
-
-    if (!response.ok) {
-      return { plan, message: `Gemini CLI quota error (${response.status}).` };
-    }
-
-    const data = await response.json();
-    const quotas = {};
-
-    if (Array.isArray(data.buckets)) {
-      for (const bucket of data.buckets) {
-        if (!bucket.modelId || bucket.remainingFraction == null) continue;
-
-        const remainingFraction = Number(bucket.remainingFraction) || 0;
-        const total = 1000; // Normalized base, matches antigravity convention
-        const remaining = Math.round(total * remainingFraction);
-        const used = Math.max(0, total - remaining);
-
-        quotas[bucket.modelId] = {
-          used,
-          total,
-          resetAt: parseResetTime(bucket.resetTime),
-          remainingPercentage: remainingFraction * 100,
-          unlimited: false,
-        };
-      }
-    }
-
-    return { plan, quotas };
-  } catch (error) {
-    return { message: `Gemini CLI error: ${error.message}` };
-  }
-}
 
 /**
  * Get Gemini CLI subscription info via loadCodeAssist
  */
-async function getGeminiSubscriptionInfo(accessToken, proxyOptions = null) {
-  try {
-    const response = await fetchWithTimeout(
-      U("gemini-cli").loadCodeAssistUrl,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ metadata: CLIENT_METADATA }),
-      },
-      10000,
-      proxyOptions
-    );
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Antigravity Usage - Fetch quota from Google Cloud Code API

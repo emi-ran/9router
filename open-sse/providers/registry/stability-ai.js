@@ -18,7 +18,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  transport: null,
+
   models: [
     { id: "stable-image-ultra", name: "Stable Image Ultra", params: ["size"], kind: "image" },
     { id: "stable-image-core", name: "Stable Image Core", params: ["size","style"], kind: "image" },

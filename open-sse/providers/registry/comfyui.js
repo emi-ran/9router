@@ -10,7 +10,7 @@ export default {
     website: "https://github.com/comfyanonymous/ComfyUI",
   },
   category: "apikey",
-  transport: null,
+
   models: [
     { id: "flux-dev", name: "FLUX Dev", params: ["n","size"], kind: "image" },
     { id: "sdxl", name: "SDXL", params: ["n","size"], kind: "image" },

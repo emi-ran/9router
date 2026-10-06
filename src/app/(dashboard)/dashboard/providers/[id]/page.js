@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, ZedAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { Card, Button, Modal, CardSkeleton, OAuthModal, Toggle, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -15,14 +15,13 @@ import { translate } from "@/i18n/runtime";
 import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import ModelRow from "./ModelRow";
-import PassthroughModelsSection from "./PassthroughModelsSection";
-import CompatibleModelsSection from "./CompatibleModelsSection";
+
 import ConnectionRow from "./ConnectionRow";
 import AddApiKeyModal from "./AddApiKeyModal";
-import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
+
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
-import BulkImportGrokCliModal from "./BulkImportGrokCliModal";
+
 import CustomConfigCard from "./CustomConfigCard";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
@@ -38,7 +37,7 @@ function sleep(ms) {
 
 export default function ProviderDetailPage() {
   const params = useParams();
-  const router = useRouter();
+
   const providerId = params.id;
   const { getCaps } = useModelCaps();
   const [connections, setConnections] = useState([]);
@@ -47,14 +46,13 @@ export default function ProviderDetailPage() {
   const [providerNode, setProviderNode] = useState(null);
   const [proxyPools, setProxyPools] = useState([]);
   const [showOAuthModal, setShowOAuthModal] = useState(false);
-  const [showXiaomiMimoModal, setShowXiaomiMimoModal] = useState(false);
-  const [showIFlowCookieModal, setShowIFlowCookieModal] = useState(false);
+
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
   const [addConnectionError, setAddConnectionError] = useState("");
   const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
-  const [showBulkImportGrokCli, setShowBulkImportGrokCli] = useState(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showEditNodeModal, setShowEditNodeModal] = useState(false);
+
   const [showBulkProxyModal, setShowBulkProxyModal] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState(null);
   const [modelAliases, setModelAliases] = useState({});
@@ -65,7 +63,7 @@ export default function ProviderDetailPage() {
   const [testingModelIds, setTestingModelIds] = useState(() => new Set());
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState([]);
-  const [bulkProxyPoolId, setBulkProxyPoolId] = useState("__none__");
+
   const [bulkUpdatingProxy, setBulkUpdatingProxy] = useState(false);
   const [providerStrategy, setProviderStrategy] = useState(null);
   const [providerStickyLimit, setProviderStickyLimit] = useState("");
@@ -74,7 +72,7 @@ export default function ProviderDetailPage() {
   const [suggestedModels, setSuggestedModels] = useState([]);
   const [liveModels, setLiveModels] = useState([]);
   // Live-catalog fetch warning/error (surfaced for zed only; cursor behavior unchanged).
-  const [liveModelsError, setLiveModelsError] = useState(null);
+
   const [kiloFreeModels, setKiloFreeModels] = useState([]);
   const [disabledModelIds, setDisabledModelIds] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
@@ -85,8 +83,7 @@ export default function ProviderDetailPage() {
   const [oneByOneResults, setOneByOneResults] = useState({});
   const [oneByOneSummary, setOneByOneSummary] = useState(null);
   const stopOneByOneRef = useRef(false);
-  const [importingQoderModels, setImportingQoderModels] = useState(false);
-  const [importingClineModels, setImportingClineModels] = useState(false);
+
   const { copied, copy } = useCopyToClipboard();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -104,10 +101,7 @@ export default function ProviderDetailPage() {
       }
     }
     // Xiaomi Desktop: auto-import local credentials first, OAuth as fallback
-    if (providerId === "xiaomi-mimo") {
-      setShowXiaomiMimoModal(true);
-      return;
-    }
+
     if (isOAuth) {
       openOAuthConnection();
       return;
@@ -157,24 +151,17 @@ export default function ProviderDetailPage() {
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
-  const models = (providerId === "cursor" || providerId === "zed") && liveModels.length > 0
-    ? liveModels
-    : staticModels;
+  const models = staticModels;
   const providerAlias = getProviderAlias(providerId);
-  
-  const isOpenAICompatible = isOpenAICompatibleProvider(providerId);
-  const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId);
-  const isCompatible = isOpenAICompatible || isAnthropicCompatible;
+
+  const isAnthropicCompatible = false;
+  const isCompatible = false;
   const hasDualAuthModes = !isCompatible && isOAuth && supportsApiKeyAuth;
   const oauthConnectionLabel =
-    providerId === "xai" ? "Grok Build OAuth"
-    : providerId === "grok-cli" ? "Grok CLI Device Login"
-    : providerId === "kimi" ? "Kimi Coding OAuth"
+    providerId === "kimi" ? "Kimi Coding OAuth"
     : "OAuth";
   const apiKeyConnectionLabel =
-    providerId === "xai" ? "xAI API Key"
-    : providerId === "kimi" ? "Kimi API Key"
-    : (providerId === "qoder" || providerId === "qoder-cn") ? "PAT"
+    (providerId === "qoder" || providerId === "qoder-cn") ? "PAT"
     : "API Key";
   // Resolve suffix "(level)" for a model when a thinking level is picked and the model supports it.
   const resolveThinkingSuffix = (modelId) => {
@@ -182,7 +169,7 @@ export default function ProviderDetailPage() {
     const levels = getThinkingLevels(providerId, modelId);
     return levels && levels.includes(thinkingMode) ? thinkingMode : null;
   };
-  const providerStorageAlias = isCompatible ? providerId : providerAlias;
+  const providerStorageAlias = providerAlias;
   // Union of levels across this provider's reasoning models — drives the level picker options.
   // Include custom models too (e.g. manually added gpt-5.6-sol → max).
   const providerThinkingLevels = (() => {
@@ -203,9 +190,7 @@ export default function ProviderDetailPage() {
     }
     return set.size ? ["auto", ...[...set]] : null;
   })();
-  const providerDisplayAlias = isCompatible
-    ? (providerNode?.prefix || providerId)
-    : providerAlias;
+  const providerDisplayAlias = providerAlias;
 
   const fetchDisabledModels = useCallback(async () => {
     try {
@@ -295,19 +280,12 @@ export default function ProviderDetailPage() {
   }, []);
 
   // Fetch free models from Kilo API for kilocode provider
-  useEffect(() => {
-    if (providerId !== "kilocode") return;
-    fetch("/api/providers/kilo/free-models")
-      .then((res) => res.json())
-      .then((data) => { if (data.models?.length) setKiloFreeModels(data.models); })
-      .catch(() => {});
-  }, [providerId]);
 
   const fetchConnections = useCallback(async () => {
     try {
       const [connectionsRes, nodesRes, proxyPoolsRes, settingsRes] = await Promise.all([
         fetch("/api/providers", { cache: "no-store" }),
-        fetch("/api/provider-nodes", { cache: "no-store" }),
+        Promise.resolve({ ok: true, json: async () => ({ nodes: [] }) }),
         fetch("/api/proxy-pools?isActive=true", { cache: "no-store" }),
         fetch("/api/settings", { cache: "no-store" }),
       ]);
@@ -353,16 +331,6 @@ export default function ProviderDetailPage() {
 
         // Newly created compatible nodes can be briefly unavailable on one worker.
         // Retry a few times before showing "Provider not found".
-        if (!node && isCompatible) {
-          for (let attempt = 0; attempt < 3; attempt += 1) {
-            await new Promise((resolve) => setTimeout(resolve, 150));
-            const retryRes = await fetch("/api/provider-nodes", { cache: "no-store" });
-            if (!retryRes.ok) continue;
-            const retryData = await retryRes.json();
-            node = (retryData.nodes || []).find((entry) => entry.id === providerId) || null;
-            if (node) break;
-          }
-        }
 
         setProviderNode(node);
       }
@@ -372,24 +340,6 @@ export default function ProviderDetailPage() {
       setLoading(false);
     }
   }, [providerId, isCompatible]);
-
-  const handleUpdateNode = async (formData) => {
-    try {
-      const res = await fetch(`/api/provider-nodes/${providerId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setProviderNode(data.node);
-        await fetchConnections();
-        setShowEditNodeModal(false);
-      }
-    } catch (error) {
-      console.log("Error updating provider node:", error);
-    }
-  };
 
   const saveProviderStrategy = async (strategy, stickyLimit) => {
     try {
@@ -492,7 +442,7 @@ export default function ProviderDetailPage() {
   // the provider id or connection list changes — no polling, no loop.
   // Cursor path is statement-identical to before; zed adds error surfacing.
   useEffect(() => {
-    const isLiveCatalog = providerId === "cursor" || providerId === "zed";
+    const isLiveCatalog = false;
     if (!isLiveCatalog) {
       setLiveModels([]);
       return;
@@ -501,31 +451,25 @@ export default function ProviderDetailPage() {
     const connection = connections.find((item) => item.isActive !== false);
     if (!connection?.id) {
       setLiveModels([]);
-      if (providerId === "zed") setLiveModelsError(null);
+
       return;
     }
 
     let cancelled = false;
-    if (providerId === "zed") setLiveModelsError(null);
+
     fetch(`/api/providers/${connection.id}/models`, { cache: "no-store" })
       .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
       .then(({ ok, data }) => {
         if (cancelled) return;
         if (ok && Array.isArray(data?.models) && data.models.length > 0) {
           setLiveModels(data.models);
-          if (providerId === "zed" && data?.warning) setLiveModelsError(data.warning);
+
           return;
         }
-        if (providerId === "zed") {
-          setLiveModels([]);
-          setLiveModelsError(data?.warning || data?.error || "Zed returned no live models.");
-        }
+
       })
       .catch(() => {
-        if (!cancelled && providerId === "zed") {
-          setLiveModels([]);
-          setLiveModelsError("Failed to reach the Zed model catalog.");
-        }
+
       });
 
     return () => { cancelled = true; };
@@ -605,106 +549,9 @@ export default function ProviderDetailPage() {
   };
 
   // Fetch Qoder model list and automatically add to available models
-  const handleImportQoderModels = async () => {
-    if (importingQoderModels) return;
-    const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) {
-      alert(translate("Please add an active Qoder connection first"));
-      return;
-    }
 
-    setImportingQoderModels(true);
-    try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || translate("Failed to fetch models"));
-        return;
-      }
-      const models = data.models || [];
-      if (models.length === 0) {
-        alert(translate("No models returned"));
-        return;
-      }
-
-      let importedCount = 0;
-      for (const model of models) {
-        const modelId = model.id || model.name;
-        if (!modelId) continue;
-        
-        // Qoder model ID format may be "qoder/auto", "qoder-cn/auto" or "auto",
-        // need to remove the provider prefix before storing.
-        const cleanModelId = modelId.replace(/^(qoder-cn|qoder)\//, "");
-        const alreadyExists = customModels.some(
-          (entry) => entry.providerAlias === providerStorageAlias && entry.id === cleanModelId && (entry.kind || entry.type || "llm") === "llm"
-        ) || Object.values(modelAliases).includes(`${providerStorageAlias}/${cleanModelId}`);
-        if (alreadyExists) {
-          continue;
-        }
-
-        await handleAddCustomModel(cleanModelId, "llm", providerStorageAlias);
-        importedCount += 1;
-      }
-      
-      if (importedCount === 0) {
-        alert(translate("All models already exist, no new models added"));
-      } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
-      }
-    } catch (error) {
-      console.log("Error importing Qoder models:", error);
-      alert(translate("Error fetching models") + ": " + error.message);
-    } finally {
-      setImportingQoderModels(false);
-    }
-  };
   // Fetch the live Cline /models catalog and add every model not yet present.
   // Cline and ClinePass share the same catalog endpoint (api.cline.bot/api/v1/models).
-  const handleImportClineModels = async () => {
-    if (importingClineModels) return;
-    const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) {
-      alert(translate("Please add an active Cline connection first"));
-      return;
-    }
-    setImportingClineModels(true);
-    try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || translate("Failed to fetch models"));
-        return;
-      }
-      const models = data.models || [];
-      if (models.length === 0) {
-        alert(translate("No models returned"));
-        return;
-      }
-      let importedCount = 0;
-      for (const model of models) {
-        const modelId = model.id || model.name;
-        if (!modelId) continue;
-        const alreadyExists = customModels.some(
-          (entry) => entry.providerAlias === providerStorageAlias && entry.id === modelId && (entry.kind || entry.type || "llm") === "llm"
-        ) || Object.values(modelAliases).includes(`${providerStorageAlias}/${modelId}`);
-        if (alreadyExists) {
-          continue;
-        }
-        await handleAddCustomModel(modelId, "llm", providerStorageAlias);
-        importedCount += 1;
-      }
-      if (importedCount === 0) {
-        alert(translate("All models already exist, no new models added"));
-      } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
-      }
-    } catch (error) {
-      console.log("Error importing Cline models:", error);
-      alert(translate("Error fetching models") + ": " + error.message);
-    } finally {
-      setImportingClineModels(false);
-    }
-  };
 
   const handleRunOneByOneTest = async () => {
     if (oneByOneRunning || connections.length === 0) return;
@@ -847,11 +694,6 @@ export default function ProviderDetailPage() {
     setShowOAuthModal(false);
   };
 
-  const handleIFlowCookieSuccess = () => {
-    fetchConnections();
-    setShowIFlowCookieModal(false);
-  };
-
   const handleSaveApiKey = async (formData) => {
     setAddConnectionError("");
     try {
@@ -937,7 +779,6 @@ export default function ProviderDetailPage() {
     }
   };
 
-  const selectedConnections = connections.filter((conn) => selectedConnectionIds.includes(conn.id));
   const allSelected = connections.length > 0 && selectedConnectionIds.length === connections.length;
 
   const toggleSelectConnection = (connectionId) => {
@@ -956,33 +797,9 @@ export default function ProviderDetailPage() {
     setSelectedConnectionIds(connections.map((conn) => conn.id));
   };
 
-  const clearSelection = () => {
-    setSelectedConnectionIds([]);
-    setBulkProxyPoolId("__none__");
-  };
-
   useEffect(() => {
     setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
   }, [connections]);
-
-  const selectedProxySummary = (() => {
-    if (selectedConnections.length === 0) return "";
-    const poolIds = new Set(selectedConnections.map((conn) => conn.providerSpecificData?.proxyPoolId || "__none__"));
-    if (poolIds.size === 1) {
-      const onlyId = [...poolIds][0];
-      if (onlyId === "__none__") return "All selected currently unbound";
-      const pool = proxyPools.find((p) => p.id === onlyId);
-      return `All selected currently bound to ${pool?.name || onlyId}`;
-    }
-    return "Selected connections have mixed proxy bindings";
-  })();
-
-  const openBulkProxyModal = () => {
-    if (selectedConnections.length === 0) return;
-    const uniquePoolIds = [...new Set(selectedConnections.map((conn) => conn.providerSpecificData?.proxyPoolId || "__none__"))];
-    setBulkProxyPoolId(uniquePoolIds.length === 1 ? uniquePoolIds[0] : "__none__");
-    setShowBulkProxyModal(true);
-  };
 
   const closeBulkProxyModal = () => {
     if (bulkUpdatingProxy) return;
@@ -1031,7 +848,6 @@ export default function ProviderDetailPage() {
     }));
     return applyProxyAssignments(targets);
   };
-
 
   const isSelected = (connectionId) => selectedConnectionIds.includes(connectionId);
 
@@ -1168,24 +984,7 @@ export default function ProviderDetailPage() {
   };
 
   const renderModelsSection = () => {
-    if (isCompatible) {
-      return (
-        <CompatibleModelsSection
-          providerStorageAlias={providerStorageAlias}
-          providerDisplayAlias={providerDisplayAlias}
-          modelAliases={modelAliases}
-          customModels={customModels}
-          copied={copied}
-          onCopy={copy}
-          onSetAlias={handleSetAlias}
-          onDeleteAlias={handleDeleteAlias}
-          onAddCustomModel={(modelId) => handleAddCustomModel(modelId, "llm", providerStorageAlias)}
-          onDeleteCustomModel={(modelId) => handleDeleteCustomModel(modelId, "llm", providerStorageAlias)}
-          connections={connections}
-          isAnthropic={isAnthropicCompatible}
-        />
-      );
-    }
+
     // Combine hardcoded models with Kilo free models (deduplicated)
     // Exclude non-llm models (embedding, tts, etc.) — they have dedicated pages under media-providers
     const allModels = [
@@ -1269,32 +1068,10 @@ export default function ProviderDetailPage() {
         </button>
 
         {/* Import Qoder models button — only show for qoder/qoder-cn provider */}
-        {(providerId === "qoder" || providerId === "qoder-cn") && connections.some((conn) => conn.isActive !== false) && (
-          <button
-            onClick={handleImportQoderModels}
-            disabled={importingQoderModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingQoderModels ? "progress_activity" : "download"}
-            </span>
-            {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
-          </button>
-        )}
+        {false}
 
         {/* Import Cline /models catalog button — only show for cline and clinepass providers */}
-        {(providerId === "cline" || providerId === "clinepass") && connections.some((conn) => conn.isActive !== false) && (
-          <button
-            onClick={handleImportClineModels}
-            disabled={importingClineModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-sm" style={importingClineModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingClineModels ? "progress_activity" : "download"}
-            </span>
-            {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
-          </button>
-        )}
+        {false}
 
         {/* Suggested models from provider API — show only models not yet added */}
         {suggestedModels.length > 0 && (() => {
@@ -1361,7 +1138,7 @@ export default function ProviderDetailPage() {
     );
 }
 
-  if (!providerInfo) {
+  if (!providerInfo || !(providerInfo.serviceKinds ?? ["llm"]).includes("llm")) {
     return (
       <div className="text-center py-20">
         <p className="text-text-muted">Provider not found</p>
@@ -1374,12 +1151,7 @@ export default function ProviderDetailPage() {
 
   // Determine icon path: OpenAI Compatible providers use specialized icons
   const getHeaderIconPath = () => {
-    if (isOpenAICompatible && providerInfo.apiType) {
-      return providerInfo.apiType === "responses" ? "/providers/oai-r.png" : "/providers/oai-cc.png";
-    }
-    if (isAnthropicCompatible) {
-      return "/providers/anthropic-m.png";
-    }
+
     return getProviderIconSrc(providerInfo.id);
   };
 
@@ -1466,66 +1238,7 @@ export default function ProviderDetailPage() {
         </div>
       )}
 
-      {isCompatible && providerNode && (
-        <Card>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h2 className="text-lg font-semibold">{isAnthropicCompatible ? "Anthropic Compatible Details" : "OpenAI Compatible Details"}</h2>
-              <p className="break-all text-sm text-text-muted">
-                {isAnthropicCompatible ? "Messages API" : (providerNode.apiType === "responses" ? "Responses API" : "Chat Completions")} · {(providerNode.baseUrl || "").replace(/\/$/, "")}/
-                {isAnthropicCompatible ? "messages" : (providerNode.apiType === "responses" ? "responses" : "chat/completions")}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-              <Button
-                size="sm"
-                icon="add"
-                onClick={() => {
-                  setAddConnectionError("");
-                  setShowAddApiKeyModal(true);
-                }}
-                className="w-full sm:w-auto"
-              >
-                Add API Key
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="edit"
-                onClick={() => setShowEditNodeModal(true)}
-                className="w-full sm:w-auto"
-              >
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="delete"
-                onClick={async () => {
-                  setConfirmState({
-                    title: "Delete Compatible Node",
-                    message: `Delete this ${isAnthropicCompatible ? "Anthropic" : "OpenAI"} Compatible node?`,
-                    onConfirm: async () => {
-                      setConfirmState(null);
-                      try {
-                        const res = await fetch(`/api/provider-nodes/${providerId}`, { method: "DELETE" });
-                        if (res.ok) {
-                          router.push("/dashboard/providers");
-                        }
-                      } catch (error) {
-                        console.log("Error deleting provider node:", error);
-                      }
-                    }
-                  });
-                }}
-                className="w-full sm:w-auto"
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
+      {false}
 
       {/* Connections */}
       {isFreeNoAuth ? (
@@ -1630,27 +1343,19 @@ export default function ProviderDetailPage() {
                   </>
                 ) : (
                   <>
-                    {!isCompatible && providerId === "iflow" && (
-                      <Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
-                        Cookie
-                      </Button>
-                    )}
+                    {false}
                     {providerId === "codex" && (
                       <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
                         {translate("Bulk Add")}
                       </Button>
                     )}
-                    {providerId === "grok-cli" && (
-                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportGrokCli(true)}>
-                        {translate("Bulk Add")}
-                      </Button>
-                    )}
+                    {false}
                     <Button
                       size="sm"
                       icon="add"
                       onClick={triggerAddConnection}
                     >
-                      {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
+                      {"Add Connection"}
                     </Button>
                   </>
                 )}
@@ -1690,18 +1395,7 @@ export default function ProviderDetailPage() {
               {connectionsList}
               {!isCompatible && (
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
-                  {providerId === "iflow" && (
-                    <Button
-                      size="sm"
-                      icon="cookie"
-                      variant="secondary"
-                      onClick={() => setShowIFlowCookieModal(true)}
-                      title="Add connection using browser cookie"
-                      className="w-full sm:w-auto"
-                    >
-                      Cookie
-                    </Button>
-                  )}
+                  {false}
                   {providerId === "codex" && (
                     <Button
                       size="sm"
@@ -1714,18 +1408,7 @@ export default function ProviderDetailPage() {
                       {translate("Bulk Add")}
                     </Button>
                   )}
-                  {providerId === "grok-cli" && (
-                    <Button
-                      size="sm"
-                      icon="playlist_add"
-                      variant="secondary"
-                      onClick={() => setShowBulkImportGrokCli(true)}
-                      title={translate("Bulk import Grok CLI accounts from JSON")}
-                      className="w-full sm:w-auto"
-                    >
-                      {translate("Bulk Add")}
-                    </Button>
-                  )}
+                  {false}
                   {hasDualAuthModes ? (
                     <>
                       <Button
@@ -1837,43 +1520,14 @@ export default function ProviderDetailPage() {
             })()}
           </div>
         )}
-        {providerId === "zed" && !!liveModelsError && (
-          <p className="text-xs text-red-500 mb-3 break-words">{liveModelsError}</p>
-        )}
+        {false}
         {renderModelsSection()}
       </Card>
 
       {bulkActionModal}
 
       {/* Modals */}
-      {providerId === "kiro" ? (
-        <KiroOAuthWrapper
-          isOpen={showOAuthModal}
-          providerInfo={providerInfo}
-          onSuccess={handleOAuthSuccess}
-          onClose={() => setShowOAuthModal(false)}
-        />
-      ) : providerId === "cursor" ? (
-        <CursorAuthModal
-          isOpen={showOAuthModal}
-          onSuccess={handleOAuthSuccess}
-          onClose={() => setShowOAuthModal(false)}
-        />
-      ) : providerId === "zed" ? (
-        <ZedAuthModal
-          isOpen={showOAuthModal}
-          providerInfo={providerInfo}
-          onSuccess={handleOAuthSuccess}
-          onClose={() => setShowOAuthModal(false)}
-        />
-      ) : providerId === "gitlab" ? (
-        <GitLabAuthModal
-          isOpen={showOAuthModal}
-          providerInfo={providerInfo}
-          onSuccess={handleOAuthSuccess}
-          onClose={() => setShowOAuthModal(false)}
-        />
-      ) : (
+      {(
         <OAuthModal
           isOpen={showOAuthModal}
           provider={providerId}
@@ -1884,18 +1538,8 @@ export default function ProviderDetailPage() {
       )}
 
       {/* Xiaomi Desktop: auto-import local credentials modal */}
-      <XiaomiMimoAuthModal
-        isOpen={showXiaomiMimoModal}
-        onSuccess={handleOAuthSuccess}
-        onClose={() => setShowXiaomiMimoModal(false)}
-      />
-      {providerId === "iflow" && (
-        <IFlowCookieModal
-          isOpen={showIFlowCookieModal}
-          onSuccess={handleIFlowCookieSuccess}
-          onClose={() => setShowIFlowCookieModal(false)}
-        />
-      )}
+      null
+      {false}
       <AddApiKeyModal
         isOpen={showAddApiKeyModal}
         provider={providerId}
@@ -1922,15 +1566,7 @@ export default function ProviderDetailPage() {
         onSave={handleUpdateConnection}
         onClose={() => setShowEditModal(false)}
       />
-      {isCompatible && (
-        <EditCompatibleNodeModal
-          isOpen={showEditNodeModal}
-          node={providerNode}
-          onSave={handleUpdateNode}
-          onClose={() => setShowEditNodeModal(false)}
-          isAnthropic={isAnthropicCompatible}
-        />
-      )}
+      {false}
       {!isCompatible && (
         <AddCustomModelModal
           isOpen={showAddCustomModel}
@@ -1954,13 +1590,7 @@ export default function ProviderDetailPage() {
         />
       )}
 
-      {providerId === "grok-cli" && (
-        <BulkImportGrokCliModal
-          isOpen={showBulkImportGrokCli}
-          onClose={() => setShowBulkImportGrokCli(false)}
-          onSuccess={fetchConnections}
-        />
-      )}
+      {false}
 
       {/* AG Risk Confirmation Modal */}
       <ConfirmModal

@@ -2,13 +2,7 @@ import REGISTRY from "../providers/registry/index.js";
 
 // Alias→id derived from registry single-source: id→id, alias→id, aliases[]→id.
 // Media-only providers without a registry transport entry keep explicit aliases here.
-const MEDIA_ONLY_ALIASES = {
-  el: "elevenlabs",
-  jina: "jina-ai",
-  "jina-ai": "jina-ai",
-  polly: "aws-polly",
-  "aws-polly": "aws-polly",
-};
+const MEDIA_ONLY_ALIASES = {};
 
 const ALIAS_TO_PROVIDER_ID = { ...MEDIA_ONLY_ALIASES };
 for (const entry of REGISTRY) {
@@ -17,15 +11,14 @@ for (const entry of REGISTRY) {
   for (const a of entry.aliases || []) ALIAS_TO_PROVIDER_ID[a] = entry.id;
 }
 
-const BUILTIN_MODEL_ALIASES = {
-  "grok-build": "gcli/grok-build",
-};
+const BUILTIN_MODEL_ALIASES = {};
 
 /**
  * Resolve provider alias to provider ID
  */
 export function resolveProviderAlias(aliasOrId) {
-  return ALIAS_TO_PROVIDER_ID[aliasOrId] || aliasOrId;
+  const id = ALIAS_TO_PROVIDER_ID[aliasOrId];
+  return ["antigravity", "codex", "opencode"].includes(id) ? id : null;
 }
 
 /**
@@ -137,11 +130,6 @@ const MODEL_PREFIX_PROVIDERS = [
   [/^gpt-6-/, "codex"],
   [/^gpt-daybreak-/, "codex"],
   [/^gpt-reserve/, "codex"],
-  [/^claude-/, "anthropic"],
-  [/^gemini-/, "gemini"],
-  [/^gpt-/, "openai"],
-  [/^o[134]/, "openai"],
-  [/^deepseek-/, "openrouter"],
 ];
 
 /**
@@ -149,7 +137,7 @@ const MODEL_PREFIX_PROVIDERS = [
  * Used as fallback when no provider prefix or alias is given
  */
 function inferProviderFromModelName(modelName) {
-  if (!modelName) return "openai";
+  if (!modelName) return null;
   const m = modelName.toLowerCase();
-  return MODEL_PREFIX_PROVIDERS.find(([re]) => re.test(m))?.[1] || "openai";
+  return MODEL_PREFIX_PROVIDERS.find(([re]) => re.test(m))?.[1] || null;
 }

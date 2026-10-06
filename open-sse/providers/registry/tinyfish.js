@@ -10,7 +10,7 @@ export default {
   },
   category: "apikey",
   authType: "apikey",
-  serviceKinds: ["webSearch", "webFetch"],
+  serviceKinds: ["webSearch","webFetch"],
   searchConfig: {
     baseUrl: "https://api.search.tinyfish.ai",
     validateUrl: "https://api.search.tinyfish.ai/usage?limit=1",
