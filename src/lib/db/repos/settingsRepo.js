@@ -31,6 +31,7 @@ const DEFAULT_SETTINGS = {
   outboundNoProxy: "",
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
+  codexAutoWebSearch: true,
 };
 
 async function readRaw() {

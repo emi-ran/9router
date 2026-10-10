@@ -156,10 +156,10 @@ describe("CodexExecutor tool normalization", () => {
     expect(body.tools).toEqual([]);
   });
 
-  it("keeps tool_choice none while adding web search", () => {
+  it("keeps tool_choice none without auto-inserting web search", () => {
     const body = { model: "gpt-5.5", input: "hi", tools: [], tool_choice: "none", _autoCodexWebSearch: true };
     new CodexExecutor().transformRequest("gpt-5.5", body);
-    expect(body.tools).toEqual([{ type: "web_search" }]);
+    expect(body.tools).toEqual([]);
     expect(body.tool_choice).toBe("none");
     expect(body._autoCodexWebSearch).toBeUndefined();
   });

@@ -54,7 +54,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, sourceFormatOverride, providerThinking, providerOverrides }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, sourceFormatOverride, providerThinking, providerOverrides, codexAutoWebSearch = true }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -299,9 +299,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
-  // Only Codex requests received at /v1/responses opt into hosted web search.
-  if (provider === "codex" && ["/v1/responses", "/api/v1/responses"].includes(clientRawRequest?.endpoint)) {
-    translatedBody._autoCodexWebSearch = true;
+  // Codex Responses and Chat Completions opt into server-side hosted search.
+  if (provider === "codex" && ["/v1/responses", "/api/v1/responses", "/v1/chat/completions", "/api/v1/chat/completions"].includes(clientRawRequest?.endpoint)) {
+    translatedBody._autoCodexWebSearch = codexAutoWebSearch !== false;
+    // Chat→Responses translation can omit tool_choice; retain explicit opt-out.
+    if (body.tool_choice === "none") translatedBody.tool_choice = "none";
   }
 
   // Execute request

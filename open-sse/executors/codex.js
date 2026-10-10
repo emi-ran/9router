@@ -423,7 +423,7 @@ export class CodexExecutor extends BaseExecutor {
     // Register hosted search before choosing transport; Lite cannot execute it.
     const autoWebSearch = body._autoCodexWebSearch === true;
     delete body._autoCodexWebSearch;
-    if (autoWebSearch && !body.tools?.some?.(tool => tool?.type === "web_search")) {
+    if (autoWebSearch && body.tool_choice !== "none" && !body.tools?.some?.(tool => tool?.type === "web_search")) {
       body.tools = [...(Array.isArray(body.tools) ? body.tools : []), { type: "web_search" }];
     }
     // Hosted search cannot run from a Lite input prefix. When switching to
