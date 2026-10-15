@@ -19,6 +19,7 @@ export default {
     },
     forceStream: true,
     noAuth: true,
+    reasoningInject: { scope: "all" },
     quirks: {
       forceAutoToolChoiceModels: ["muse-spark-1.3-contributor-free"],
     },

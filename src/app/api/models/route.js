@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getModelAliases, setModelAlias, getCustomModels } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { AI_MODELS } from "@/shared/constants/config";
-import { getProviderAlias } from "@/shared/constants/providers";
+import { AI_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+
+const providerId = (alias) => ALIAS_TO_ID[alias] || alias;
+const isChatProvider = (alias) => ["antigravity", "codex", "opencode"].includes(providerId(alias)) && !!AI_PROVIDERS[providerId(alias)];
 
 // GET /api/models - Get models with aliases
 export async function GET() {
@@ -14,8 +17,7 @@ export async function GET() {
     const models = AI_MODELS
       .filter((m) => {
         const alias = getProviderAlias(m.provider) || m.provider;
-        const list = disabled[alias] || disabled[m.provider] || [];
-        return !list.includes(m.model);
+        return isChatProvider(m.provider) && !disabled[alias]?.includes(m.model) && !disabled[providerId(m.provider)]?.includes(m.model);
       })
       .map((m) => {
         const fullModel = `${m.provider}/${m.model}`;
@@ -40,7 +42,10 @@ export async function GET() {
     // Custom models ride along; their stored caps override the name heuristic
     const seenFull = new Set(models.map((m) => m.fullModel));
     const customModels = (await getCustomModels()).filter((m) => {
-      if (!m?.id || (m.kind || m.type || "llm") !== "llm") return false;
+      if (!m?.id || !isChatProvider(m.providerAlias) || (m.kind || m.type || "llm") !== "llm") return false;
+      const id = providerId(m.providerAlias);
+      const alias = getProviderAlias(id) || id;
+      if (disabled[alias]?.includes(m.id) || disabled[id]?.includes(m.id)) return false;
       return !seenFull.has(`${m.providerAlias}/${m.id}`);
     });
     for (const m of customModels) {

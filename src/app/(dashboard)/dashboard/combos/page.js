@@ -167,7 +167,7 @@ export default function CombosPage() {
       // Only LLM combos here - webSearch/webFetch combos belong to media-providers/web
       if (combosRes.ok) setCombos((combosData.combos || []).filter(c => !c.kind || c.kind === "llm"));
       if (providersRes.ok) {
-        setActiveProviders(providersData.connections || []);
+        setActiveProviders((providersData.connections || []).filter((c) => c.isActive !== false));
       }
       setComboStrategies(settingsData.comboStrategies || {});
       const rawAdapter = settingsData.capacityAdapter || {};
@@ -939,6 +939,11 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
           onClose={() => setShowModelSelect(false)}
           onSelect={handleAdd}
           onDeselect={handleDeselect}
+          onSelectBatch={(items) => patch({ models: [...new Set([...models, ...items.map((m) => m.value)])] })}
+          onDeselectBatch={(items) => {
+            const values = new Set(items.map((m) => m.value));
+            patch({ models: models.filter((value) => !values.has(value)) });
+          }}
           activeProviders={activeProviders}
           title={`Add ${cap.label} Model`}
           addedModelValues={models}
@@ -1240,9 +1245,15 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
           onClose={() => setShowModelSelect(false)}
           onSelect={handleAddModel}
           onDeselect={handleDeselectModel}
+          onSelectBatch={(items) => setModels((prev) => [...new Set([...prev, ...items.map((m) => m.value)])])}
+          onDeselectBatch={(items) => {
+            const values = new Set(items.map((m) => m.value));
+            setModels((prev) => prev.filter((value) => !values.has(value)));
+          }}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           title="Add Model to Combo"
+          allowProviderWildcard={(!kindFilter || kindFilter === "llm") && (!combo?.kind || combo.kind === "llm")}
           kindFilter={kindFilter}
           addedModelValues={models}
           closeOnSelect={false}

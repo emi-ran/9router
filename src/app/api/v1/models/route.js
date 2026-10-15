@@ -1,5 +1,5 @@
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/constants/models";
-import { AI_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
+import { AI_PROVIDERS, FREE_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
@@ -20,7 +20,7 @@ export async function buildModelsList(kindFilter) {
     if (!AI_PROVIDERS[owner] || !kindsFor(owner).includes(kind)) return;
     if (kind === "llm" && !CHAT_PROVIDERS.has(owner)) return;
     if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes("llm"))) return;
-    if (disabled[alias]?.includes(id)) return;
+    if (disabled[alias]?.includes(id) || disabled[owner]?.includes(id)) return;
     const entry = { id: `${alias}/${id}`, object: "model", owned_by: alias };
     if (CHAT_PROVIDERS.has(owner)) {
       const custom = customModels.find((model) => providerId(model.providerAlias) === owner && model.id === id);
@@ -32,7 +32,13 @@ export async function buildModelsList(kindFilter) {
     if (kind === "webSearch" || kind === "webFetch") entry.kind = kind;
     entries.set(entry.id, entry);
   };
-  const ids = active.length ? [...new Set(active.map((c) => c.provider))] : Object.keys(AI_PROVIDERS);
+  // Match the picker: a provider with stored connections is disabled only
+  // when every connection is explicitly inactive. No-auth is not an override.
+  const activeIds = new Set(active.map((c) => c.provider));
+  const deactivatedIds = new Set(connections.filter((c) => c.isActive === false && !activeIds.has(c.provider)).map((c) => c.provider));
+  const noAuthIds = Object.entries(FREE_PROVIDERS).filter(([id, provider]) => AI_PROVIDERS[id] && provider.noAuth && !deactivatedIds.has(id)).map(([id]) => id);
+  const ids = (active.length ? [...new Set([...activeIds, ...noAuthIds])] : Object.keys(AI_PROVIDERS))
+    .filter((id) => !deactivatedIds.has(id));
   for (const id of ids) {
     const alias = PROVIDER_ID_TO_ALIAS[id] || getProviderAlias(id);
     const conn = active.find((c) => c.provider === id);

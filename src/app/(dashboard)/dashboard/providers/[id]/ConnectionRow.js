@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
 import PropTypes from "prop-types";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
@@ -12,6 +13,9 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
   const [showMobileProxyOptions, setShowMobileProxyOptions] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
   const proxyDropdownRef = useRef(null);
+  const proxyBtnRef = useRef(null);
+  const mobileActionsRef = useRef(null);
+  const [proxyDropdownStyle, setProxyDropdownStyle] = useState(null);
 
   const proxyPoolMap = new Map((proxyPools || []).map((pool) => [pool.id, pool]));
   const boundProxyPoolId = connection.providerSpecificData?.proxyPoolId || null;
@@ -26,7 +30,7 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
         ? `Legacy: ${connection.providerSpecificData?.connectionProxyUrl}`
         : "";
   const autoPingTooltip = autoPing?.provider === "codex"
-    ? "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.5 request. Consumes a small amount of quota."
+    ? "Auto-starts the next 5h Codex window after reset by sending a tiny request. Consumes a small amount of quota."
     : "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.";
 
   let maskedProxyUrl = "";
@@ -49,18 +53,53 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
     proxyBadgeVariant = "error";
   }
 
+  // Fixed body portal escapes the scrollable connections list, like upstream
+  // d95bb8ea, while retaining BASIC's separate mobile action menu.
+  const toggleProxyDropdown = () => {
+    if (showProxyDropdown) return setShowProxyDropdown(false);
+    const rect = proxyBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const estimatedHeight = ((proxyPools?.length || 0) + 1) * 34 + 8;
+    const flipUp = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+    setProxyDropdownStyle({
+      position: "fixed",
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(flipUp
+        ? { bottom: window.innerHeight - rect.top + 4, maxHeight: Math.max(0, rect.top - 8) }
+        : { top: rect.bottom + 4, maxHeight: Math.max(0, spaceBelow - 8) }),
+    });
+    setShowProxyDropdown(true);
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!showProxyDropdown && !showMobileActions) return;
     const handler = (e) => {
-      if (proxyDropdownRef.current && !proxyDropdownRef.current.contains(e.target)) {
+      if (!proxyDropdownRef.current?.contains(e.target) && !proxyBtnRef.current?.contains(e.target) && !mobileActionsRef.current?.contains(e.target)) {
         setShowProxyDropdown(false);
         setShowMobileActions(false);
         setShowMobileProxyOptions(false);
       }
     };
+    const close = (e) => {
+      // Scrolling inside a long proxy menu must not dismiss it.
+      if (e.type === "scroll" && proxyDropdownRef.current?.contains(e.target)) return;
+      setShowProxyDropdown(false);
+      setShowMobileActions(false);
+      setShowMobileProxyOptions(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(e); };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+    };
   }, [showProxyDropdown, showMobileActions]);
 
   const handleSelectProxy = async (poolId) => {
@@ -250,13 +289,14 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
           )}
         </div>
       </div>
-      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2" ref={proxyDropdownRef}>
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2">
         <div className="hidden sm:flex sm:flex-none sm:gap-1">
           {/* Proxy button with inline dropdown */}
           {(proxyPools || []).length > 0 && (
             <div className="relative">
               <button
-                onClick={() => setShowProxyDropdown((v) => !v)}
+                ref={proxyBtnRef}
+                onClick={toggleProxyDropdown}
                 title="Proxy"
                 className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
                 disabled={updatingProxy}
@@ -265,8 +305,8 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
                   {updatingProxy ? "progress_activity" : "lan"}
                 </span>
               </button>
-              {showProxyDropdown && (
-                <div className="absolute right-0 top-full z-50 mt-1 max-w-[78vw] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
+              {showProxyDropdown && createPortal(
+                <div ref={proxyDropdownRef} style={proxyDropdownStyle} className="z-50 max-w-[78vw] min-w-[160px] overflow-y-auto rounded-lg border border-border bg-bg py-1 shadow-lg">
                   <button
                     onClick={() => handleSelectProxy("__none__")}
                     className={`w-full text-left px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/5 ${!boundProxyPoolId ? "text-primary font-medium" : "text-text-main"}`}
@@ -282,7 +322,8 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
                       {pool.name}
                     </button>
                   ))}
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           )}
@@ -312,7 +353,7 @@ export default function ConnectionRow({ connection, plan = null, proxyPools, isO
           onChange={onToggleActive}
           title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
         />
-        <div className="relative sm:hidden">
+        <div className="relative sm:hidden" ref={mobileActionsRef}>
           <button
             type="button"
             onClick={() => {

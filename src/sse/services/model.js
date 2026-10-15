@@ -1,5 +1,7 @@
 // Re-export from open-sse with localDb integration
-import { getModelAliases, getComboByName } from "@/lib/localDb";
+import { getModelAliases, getComboByName, getCustomModels, getProviderConnections } from "@/lib/localDb";
+import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { expandProviderWildcards } from "@/mine/routing/providerWildcards.js";
 import { parseModel as parseModelCore, resolveModelAliasFromMap, getModelInfoCore } from "open-sse/services/model.js";
 import REGISTRY from "open-sse/providers/registry/index.js";
 
@@ -67,7 +69,12 @@ export async function getComboModels(modelStr) {
 
   const combo = await getComboByName(modelStr);
   if (combo && combo.models && combo.models.length > 0) {
-    return combo.models;
+    if (!combo.models.some((seat) => typeof seat === "string" && seat.includes("*"))) return combo.models;
+    // Expand before rotation/capability ordering, never dispatch a literal '*'.
+    // Search/fetch/image combos must not acquire chat-provider wildcard seats.
+    if (combo.kind && combo.kind !== "llm") return combo.models.filter((seat) => typeof seat !== "string" || !seat.includes("*"));
+    const [customModels, disabled, connections] = await Promise.all([getCustomModels(), getDisabledModels(), getProviderConnections()]);
+    return expandProviderWildcards(combo.models, { customModels, disabled, connections });
   }
   return null;
 }

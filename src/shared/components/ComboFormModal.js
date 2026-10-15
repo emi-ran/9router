@@ -84,10 +84,10 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
   };
 
   const handleAddModel = (model) => {
-    if (!models.includes(model.value)) setModels([...models, model.value]);
+    setModels((prev) => prev.includes(model.value) ? prev : [...prev, model.value]);
   };
   const handleDeselectModel = (model) => {
-    setModels(models.filter((m) => m !== model.value));
+    setModels((prev) => prev.filter((m) => m !== model.value));
   };
   const handleRemoveModel = (i) => setModels(models.filter((_, idx) => idx !== i));
   const handleMoveUp = (i) => {
@@ -169,8 +169,17 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
       {showModelSelect && (
         <ModelSelectModal isOpen={showModelSelect} onClose={() => setShowModelSelect(false)}
           onSelect={handleAddModel} onDeselect={handleDeselectModel}
+          onSelectBatch={(items) => {
+            const vals = items.map((m) => m?.value || m?.name || m).filter(Boolean);
+            setModels((prev) => [...new Set([...prev, ...vals])]);
+          }}
+          onDeselectBatch={(items) => {
+            const vals = new Set(items.map((m) => m?.value || m?.name || m).filter(Boolean));
+            setModels((prev) => prev.filter((m) => !vals.has(m)));
+          }}
           activeProviders={activeProviders} modelAliases={modelAliases}
           title="Add Model to Combo" kindFilter={kindFilter}
+          allowProviderWildcard={(!kindFilter || kindFilter === "llm") && (!combo?.kind || combo.kind === "llm")}
           addedModelValues={models} closeOnSelect={false} />
       )}
     </>
