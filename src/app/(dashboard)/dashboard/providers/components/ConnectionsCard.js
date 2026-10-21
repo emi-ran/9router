@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
 import PropTypes from "prop-types";
-import { Card, Badge, Button, Modal, Select, Toggle, EditConnectionModal, ConfirmModal } from "@/shared/components";
+import { Card, Badge, Button, Modal, Select, Toggle, EditConnectionModal, ConfirmModal, OAuthModal } from "@/shared/components";
+import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 // ── CooldownTimer ──────────────────────────────────────────────
 function CooldownTimer({ until }) {
@@ -458,13 +459,23 @@ export default function ConnectionsCard({ providerId, isOAuth }) {
         )}
       </Card>
 
-      <AddApiKeyModal
-        isOpen={showAddModal}
-        provider={providerId}
-        proxyPools={proxyPools}
-        onSave={handleSaveApiKey}
-        onClose={() => setShowAddModal(false)}
-      />
+      {isOAuth ? (
+        <OAuthModal
+          isOpen={showAddModal}
+          provider={providerId}
+          providerInfo={AI_PROVIDERS[providerId]}
+          onSuccess={async () => { await fetch_(); setShowAddModal(false); }}
+          onClose={() => setShowAddModal(false)}
+        />
+      ) : (
+        <AddApiKeyModal
+          isOpen={showAddModal}
+          provider={providerId}
+          proxyPools={proxyPools}
+          onSave={handleSaveApiKey}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
       <EditConnectionModal
         isOpen={showEditModal}
         connection={selectedConnection}

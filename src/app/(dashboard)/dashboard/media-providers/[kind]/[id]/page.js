@@ -3,7 +3,9 @@
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 
-import { Badge, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import { Card, Badge, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import CodexTranscriptionNotice from "@/mine/stt/CodexTranscriptionNotice.jsx";
+import { SttExampleCard } from "./components/SttExampleCard";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS,  } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
@@ -106,15 +108,32 @@ export default function MediaProviderDetailPage() {
         </div>
       )}
 
+      {kind === "stt" && id === "codex" && (
+        <>
+          <CodexTranscriptionNotice />
+          <p className="text-sm text-text-muted">
+            Accounts, priorities, proxies and enable/disable settings are shared with chat.{" "}
+            <Link href="/dashboard/providers/codex" className="text-primary hover:underline">Manage Codex chat accounts</Link>
+          </p>
+        </>
+      )}
+
       {/* Connections */}
       {!isCustom && provider.noAuth ? (
         <NoAuthProxyCard providerId={id} />
       ) : (
-        <ConnectionsCard providerId={id} isOAuth={false} />
+        <ConnectionsCard providerId={id} isOAuth={kind === "stt" && id === "codex"} />
       )}
 
       {/* Models - hidden for tts/webSearch/webFetch (provider IS the model); custom uses prefix as alias */}
-      {kind !== "tts" && kind !== "webSearch" && kind !== "webFetch" && (
+      {kind === "stt" && id === "codex" && (
+        <Card>
+          <h2 className="text-lg font-semibold mb-2">Models</h2>
+          <code className="text-sm">cx/transcribe</code>
+          <p className="text-xs text-text-muted mt-1">Codex transcription · json / text</p>
+        </Card>
+      )}
+      {kind !== "stt" && kind !== "tts" && kind !== "webSearch" && kind !== "webFetch" && (
         <ModelsCard
           providerId={id}
           kindFilter={kind}
@@ -139,7 +158,7 @@ export default function MediaProviderDetailPage() {
         null
       )}
       {kind === "tts" && null}
-      {kind === "stt" && !isCustom && null}
+      {kind === "stt" && id === "codex" && <SttExampleCard providerId={id} />}
       {!isCustom && KIND_EXAMPLE_CONFIG[kind] && <GenericExampleCard providerId={id} kind={kind} />}
 
       {false}

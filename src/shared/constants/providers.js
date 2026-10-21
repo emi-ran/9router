@@ -24,6 +24,8 @@ function buildProviderEntry(r) {
     alias: r.uiAlias || r.alias,
     ...(r.hidden ? { hidden: true } : {}),
     ...mediaFields,
+    // Codex transcription reuses the existing chat OAuth account pool.
+    ...(r.id === "codex" ? { serviceKinds: [...new Set([...(mediaFields.serviceKinds || ["llm"]), "stt"])] } : {}),
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
     ...(r.hasFree ? { hasFree: true } : {}),
     ...(r.thinkingConfig ? { thinkingConfig: r.thinkingConfig } : {}),
@@ -70,6 +72,7 @@ export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 
 // Media provider kinds — each kind maps to a route and endpoint config
 export const MEDIA_PROVIDER_KINDS = [
+  { id: "stt",         label: "Speech to Text", icon: "mic",               endpoint: { method: "POST", path: "/v1/audio/transcriptions" } },
   { id: "image",       label: "Text to Image",  icon: "brush",             endpoint: { method: "POST", path: "/v1/images/generations" } },
   { id: "imageToText", label: "Image to Text",  icon: "image_search",      endpoint: { method: "POST", path: "/v1/images/understanding" } },
   { id: "webSearch",   label: "Web Search",     icon: "travel_explore",    endpoint: { method: "POST", path: "/v1/search" } },
