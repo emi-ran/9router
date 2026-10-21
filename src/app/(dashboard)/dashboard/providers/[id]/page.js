@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
+import CodexTranscriptionNotice from "@/mine/stt/CodexTranscriptionNotice.jsx";
 import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
@@ -1239,6 +1240,8 @@ export default function ProviderDetailPage() {
       )}
 
       {false}
+
+      {providerId === "codex" && <CodexTranscriptionNotice />}
 
       {/* Connections */}
       {isFreeNoAuth ? (

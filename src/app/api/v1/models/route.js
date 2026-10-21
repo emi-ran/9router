@@ -2,6 +2,7 @@ import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/co
 import { AI_PROVIDERS, FREE_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { codexTranscriptionModels } from "@/mine/stt/catalog.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
 const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
@@ -100,16 +101,17 @@ export async function buildModelsList(kindFilter) {
     entries.set(entry.id, entry);
     if (!combo.kind || combo.kind === "llm") Object.assign(entry, limitsFor(combo));
   }
-  return [...entries.values()];
+  return [...entries.values(), ...codexTranscriptionModels(connections, disabled, kindFilter)];
 }
 
 export async function OPTIONS() {
   return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Allow-Headers": "*" } });
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
-    return Response.json({ object: "list", data: await buildModelsList(["llm"]) }, { headers: { "Access-Control-Allow-Origin": "*" } });
+    const kinds = request && new URL(request.url).searchParams.get("kind") === "stt" ? ["stt"] : ["llm"];
+    return Response.json({ object: "list", data: await buildModelsList(kinds) }, { headers: { "Access-Control-Allow-Origin": "*" } });
   } catch (error) {
     console.error("Error fetching models:", error);
     return Response.json({ error: { message: "Failed to list models", type: "server_error" } }, { status: 500 });
