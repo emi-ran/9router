@@ -6,8 +6,6 @@ import Link from "next/link";
 import { Card, Badge, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
 import CodexTranscriptionNotice from "@/mine/stt/CodexTranscriptionNotice.jsx";
 import { SttExampleCard } from "./components/SttExampleCard";
-import { TtsExampleCard } from "./components/TtsExampleCard";
-import CodexReadAloudNotice from "@/mine/tts/CodexReadAloudNotice.jsx";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS,  } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
@@ -110,9 +108,9 @@ export default function MediaProviderDetailPage() {
         </div>
       )}
 
-      {(kind === "stt" || kind === "tts") && id === "codex" && (
+      {kind === "stt" && id === "codex" && (
         <>
-          {kind === "stt" ? <CodexTranscriptionNotice /> : <CodexReadAloudNotice />}
+          <CodexTranscriptionNotice />
           <p className="text-sm text-text-muted">
             Accounts, priorities, proxies and enable/disable settings are shared with chat.{" "}
             <Link href="/dashboard/providers/codex" className="text-primary hover:underline">Manage Codex chat accounts</Link>
@@ -124,15 +122,15 @@ export default function MediaProviderDetailPage() {
       {!isCustom && provider.noAuth ? (
         <NoAuthProxyCard providerId={id} />
       ) : (
-        <ConnectionsCard providerId={id} isOAuth={(kind === "stt" || kind === "tts") && id === "codex"} />
+        <ConnectionsCard providerId={id} isOAuth={kind === "stt" && id === "codex"} />
       )}
 
       {/* Models - hidden for tts/webSearch/webFetch (provider IS the model); custom uses prefix as alias */}
-      {(kind === "stt" || kind === "tts") && id === "codex" && (
+      {kind === "stt" && id === "codex" && (
         <Card>
           <h2 className="text-lg font-semibold mb-2">Models</h2>
-          <code className="text-sm">{kind === "stt" ? "cx/transcribe" : "cx/speak"}</code>
-          <p className="text-xs text-text-muted mt-1">{kind === "stt" ? "Codex transcription · json / text" : "Codex Read Aloud · mp3"}</p>
+          <code className="text-sm">cx/transcribe</code>
+          <p className="text-xs text-text-muted mt-1">Codex transcription · json / text</p>
         </Card>
       )}
       {kind !== "stt" && kind !== "tts" && kind !== "webSearch" && kind !== "webFetch" && (
@@ -159,8 +157,8 @@ export default function MediaProviderDetailPage() {
       {kind === "embedding" && (
         null
       )}
+      {kind === "tts" && null}
       {kind === "stt" && id === "codex" && <SttExampleCard providerId={id} />}
-      {kind === "tts" && id === "codex" && <TtsExampleCard />}
       {!isCustom && KIND_EXAMPLE_CONFIG[kind] && <GenericExampleCard providerId={id} kind={kind} />}
 
       {false}

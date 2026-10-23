@@ -2,7 +2,7 @@ import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/co
 import { AI_PROVIDERS, FREE_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
-import { codexTranscriptionModels, codexReadAloudModels } from "@/mine/stt/catalog.js";
+import { codexTranscriptionModels } from "@/mine/stt/catalog.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
 const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
@@ -101,11 +101,7 @@ export async function buildModelsList(kindFilter) {
     entries.set(entry.id, entry);
     if (!combo.kind || combo.kind === "llm") Object.assign(entry, limitsFor(combo));
   }
-  return [
-    ...entries.values(),
-    ...codexTranscriptionModels(connections, disabled, kindFilter),
-    ...codexReadAloudModels(connections, disabled, kindFilter),
-  ];
+  return [...entries.values(), ...codexTranscriptionModels(connections, disabled, kindFilter)];
 }
 
 export async function OPTIONS() {

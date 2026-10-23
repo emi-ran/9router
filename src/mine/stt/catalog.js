@@ -17,22 +17,3 @@ export function codexTranscriptionInfo(id, kind) {
   return ["cx/transcribe", "codex/transcribe"].includes(id) && (!kind || kind === "stt")
     ? { ...CODEX_TRANSCRIPTION, id } : null;
 }
-
-export const CODEX_READ_ALOUD = {
-  id: "cx/speak", name: "Codex Read Aloud (Experimental)", kind: "tts", owned_by: "cx",
-  endpoint: "/v1/audio/speech", params: ["input", "pronunciation_language", "speed"],
-  options: { voice: ["alloy"], response_format: ["mp3"], max_characters: 4000, speed: { min: 0.5, max: 2 } },
-};
-export function codexReadAloudModels(connections, disabled, kinds) {
-  if (!kinds.includes("tts") || disabled.cx?.some((id) => ["speak", "cx/speak"].includes(id)) || disabled.codex?.some((id) => ["speak", "cx/speak", "codex/speak"].includes(id))) return [];
-  return connections.some((c) => c.provider === "codex" && c.isActive !== false && c.authType === "oauth"
-    && codexConnectionAllows(c, "speak"))
-    ? [{ id: CODEX_READ_ALOUD.id, object: "model", owned_by: "cx", kind: "tts" }] : [];
-}
-export function codexReadAloudInfo(id, kind) {
-  return ["cx/speak", "codex/speak"].includes(id) && (!kind || kind === "tts") ? { ...CODEX_READ_ALOUD, id } : null;
-}
-export function codexConnectionAllows(connection, model) {
-  const enabled = connection?.providerSpecificData?.enabledModels;
-  return !Array.isArray(enabled) || !enabled.length || enabled.some((id) => [model, `cx/${model}`, `codex/${model}`].includes(id));
-}

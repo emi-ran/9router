@@ -1,7 +1,7 @@
 import { PROVIDER_MODELS } from "open-sse/config/providerModels.js";
 import { AI_PROVIDERS, ALIAS_TO_ID } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
-import { codexTranscriptionInfo, codexReadAloudInfo } from "@/mine/stt/catalog.js";
+import { codexTranscriptionInfo } from "@/mine/stt/catalog.js";
 
 const KIND_ENDPOINT = {
   llm: "/v1/chat/completions",
@@ -94,7 +94,7 @@ export async function GET(request) {
       { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
     );
   }
-  const info = codexTranscriptionInfo(id, kind) || codexReadAloudInfo(id, kind) || lookup(id, kind);
+  const info = codexTranscriptionInfo(id, kind) || lookup(id, kind);
   if (!info) {
     return Response.json(
       { error: { message: `Model not found: ${id}`, type: "not_found" } },

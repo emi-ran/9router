@@ -25,7 +25,7 @@ function buildProviderEntry(r) {
     ...(r.hidden ? { hidden: true } : {}),
     ...mediaFields,
     // Codex transcription reuses the existing chat OAuth account pool.
-    ...(r.id === "codex" ? { serviceKinds: [...new Set([...(mediaFields.serviceKinds || ["llm"]), "stt", "tts"])] } : {}),
+    ...(r.id === "codex" ? { serviceKinds: [...new Set([...(mediaFields.serviceKinds || ["llm"]), "stt"])] } : {}),
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
     ...(r.hasFree ? { hasFree: true } : {}),
     ...(r.thinkingConfig ? { thinkingConfig: r.thinkingConfig } : {}),
