@@ -2,7 +2,7 @@ import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/co
 import { AI_PROVIDERS, FREE_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
-import { codexTranscriptionModels } from "@/mine/stt/catalog.js";
+import { codexTranscriptionModels, codexReadAloudModels } from "@/mine/stt/catalog.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
 const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
@@ -101,7 +101,11 @@ export async function buildModelsList(kindFilter) {
     entries.set(entry.id, entry);
     if (!combo.kind || combo.kind === "llm") Object.assign(entry, limitsFor(combo));
   }
-  return [...entries.values(), ...codexTranscriptionModels(connections, disabled, kindFilter)];
+  return [
+    ...entries.values(),
+    ...codexTranscriptionModels(connections, disabled, kindFilter),
+    ...codexReadAloudModels(connections, disabled, kindFilter),
+  ];
 }
 
 export async function OPTIONS() {
@@ -110,7 +114,8 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   try {
-    const kinds = request && new URL(request.url).searchParams.get("kind") === "stt" ? ["stt"] : ["llm"];
+    const kind = request && new URL(request.url).searchParams.get("kind");
+    const kinds = kind === "stt" || kind === "tts" ? [kind] : ["llm"];
     return Response.json({ object: "list", data: await buildModelsList(kinds) }, { headers: { "Access-Control-Allow-Origin": "*" } });
   } catch (error) {
     console.error("Error fetching models:", error);
