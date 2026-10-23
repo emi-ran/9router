@@ -37,6 +37,7 @@ const nextConfig = {
   },
   env: {},
   experimental: {
+    agentUpgrade: "security",
     ...(Number.isInteger(buildCpus) && buildCpus > 0 ? {
       cpus: buildCpus,
       webpackMemoryOptimizations: true,

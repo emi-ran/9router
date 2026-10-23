@@ -9,6 +9,10 @@ supports **TinyFish** and **Tavily** only.
 
 Use installed Node.js/npm dependencies:
 
+Next.js is pinned to `16.4.3` for the security update from installed `16.4.0`.
+`experimental.agentUpgrade: "security"` enables security upgrade reminders;
+it does not automatically install updates.
+
 ```sh
 npm install
 npm run dev
