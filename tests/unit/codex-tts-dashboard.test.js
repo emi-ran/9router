@@ -38,5 +38,7 @@ it("uses the shared provider-card and connection-count flow for TTS", () => {
   expect(page).toContain("const providers = getProvidersByKind(kind)");
   expect(page).toContain("provider={provider}");
   expect(page).toContain("connections={connections}");
+  expect(page).toContain("const allProviders = [...providers, ...customProviders]");
+  expect(page).not.toContain('kind === "tts" ? [] :');
   expect(page).not.toContain('if (kind === "tts") {');
 });

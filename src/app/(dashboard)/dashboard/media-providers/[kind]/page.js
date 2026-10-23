@@ -183,7 +183,7 @@ export default function MediaProviderKindPage() {
     textIcon: "CE",
   }));
 
-  const allProviders = kind === "tts" ? [] : [...providers, ...customProviders];
+  const allProviders = [...providers, ...customProviders];
 
   const handleToggleProvider = async (providerId, newActive) => {
     const providerConns = connections.filter((c) => c.provider === providerId);
