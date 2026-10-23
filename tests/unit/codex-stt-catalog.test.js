@@ -12,14 +12,19 @@ it("exposes only Codex in the restored STT catalog without restoring excluded ki
   }
 });
 
-it("adds the Text to speech tab without restoring legacy TTS providers", () => {
+it("adds Codex Read Aloud to Text to speech without restoring legacy TTS providers", () => {
   expect(MEDIA_PROVIDER_KINDS.find((kind) => kind.id === "tts")?.endpoint.path).toBe("/v1/audio/speech");
   expect(MEDIA_PROVIDER_KINDS.find((kind) => kind.id === "tts")?.label).toBe("Text to speech");
-  expect(getProvidersByKind("tts")).toEqual([]);
-  const page = readFileSync(new URL("../../src/app/(dashboard)/dashboard/media-providers/[kind]/page.js", import.meta.url), "utf8");
-  expect(page).toContain("Codex Read Aloud");
-  expect(page).toContain("OAuth compatibility and live synthesis have not yet been verified");
-  expect(page).toContain("/dashboard/providers/codex");
+  expect(AI_PROVIDERS.codex.serviceKinds).toContain("tts");
+  expect(getProvidersByKind("tts").map((provider) => provider.id)).toEqual(["codex"]);
+  const listPage = readFileSync(new URL("../../src/app/(dashboard)/dashboard/media-providers/[kind]/page.js", import.meta.url), "utf8");
+  expect(listPage).toContain("const providers = getProvidersByKind(kind)");
+  expect(listPage).toContain("connections={connections}");
+  const detailPage = readFileSync(new URL("../../src/app/(dashboard)/dashboard/media-providers/[kind]/[id]/page.js", import.meta.url), "utf8");
+  expect(detailPage).toContain("CodexReadAloudNotice");
+  expect(detailPage).toContain("TtsExampleCard");
+  expect(detailPage).toContain('"cx/speak"');
+  expect(detailPage).toContain('kind === "tts" && id === "codex"');
 });
 
 it("makes TTS reachable in Media Providers navigation", () => {

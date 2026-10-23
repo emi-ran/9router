@@ -221,38 +221,6 @@ export default function MediaProviderKindPage() {
     }
   };
 
-  if (kind === "tts") {
-    const codexConnections = connections.filter((connection) => connection.provider === "codex");
-    const oauthConnected = codexConnections.some((connection) => connection.authType === "oauth" && connection.isActive !== false);
-    return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
-        <Card padding="lg">
-          <div className="flex items-start gap-4">
-            <span className="material-symbols-outlined rounded-xl bg-primary/10 p-3 text-2xl text-primary">record_voice_over</span>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold">Codex Read Aloud</h2>
-              <p className="mt-1 text-sm text-text-muted">Experimental Codex OAuth speech synthesis. This is separate from standard OpenAI API-key TTS.</p>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Badge variant={oauthConnected ? "success" : "default"} size="sm" dot>
-                  {oauthConnected ? "Codex OAuth connected" : "Codex OAuth required"}
-                </Badge>
-                <Link className="text-sm font-medium text-primary hover:underline" href="/dashboard/providers/codex">Manage Codex account →</Link>
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card padding="lg">
-          <h3 className="text-sm font-semibold">API details</h3>
-          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-            <div><span className="text-text-muted">Model</span><code className="mt-1 block rounded-lg bg-black/[0.04] p-2 font-mono dark:bg-white/[0.06]">cx/speak</code></div>
-            <div><span className="text-text-muted">Endpoint</span><code className="mt-1 block rounded-lg bg-black/[0.04] p-2 font-mono dark:bg-white/[0.06]">POST /v1/audio/speech</code></div>
-          </div>
-          <p className="mt-4 text-xs leading-relaxed text-text-muted">Uses an undocumented Codex Read Aloud endpoint. OAuth compatibility and live synthesis have not yet been verified; availability may change without notice.</p>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6">
       {(false) && (
