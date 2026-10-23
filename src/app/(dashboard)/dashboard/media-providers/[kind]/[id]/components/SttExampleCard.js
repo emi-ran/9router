@@ -10,7 +10,7 @@ const subscribeOrigin = () => () => {};
 const getOrigin = () => window.location.origin;
 const getServerOrigin = () => "";
 
-// Codex intentionally exposes only file/model/response_format, unlike upstream STT providers.
+// Codex supports an optional language hint alongside file/model/response_format.
 export function SttExampleCard() {
   const [audioFile, setAudioFile] = useState(null);
   const [responseFormat, setResponseFormat] = useState("json");
@@ -24,12 +24,17 @@ export function SttExampleCard() {
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
   const { copied: copiedResult, copy: copyResult } = useCopyToClipboard();
 
-  const curl = buildTranscriptionCurl(endpoint, audioFile?.name || "audio.mp3", responseFormat, language);
+  const languageValid = language === "" || /^[a-zA-Z]{2}$/.test(language);
+  const languageError = languageValid ? "" : "Language must be a two-letter code, such as tr or en";
+  // Partial input (e.g. the first letter of "tr") must not throw during render.
+  const curl = languageValid
+    ? buildTranscriptionCurl(endpoint, audioFile?.name || "audio.mp3", responseFormat, language)
+    : "";
   const resultText = result === null ? (responseFormat === "text" ? "Hello world..." : '{\n  "text": "Hello world..."\n}')
     : typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
   const handleRun = async () => {
-    if (!audioFile || running) return;
+    if (!audioFile || running || !languageValid) return;
     setRunning(true);
     setError("");
     setResult(null);
@@ -65,14 +70,15 @@ export function SttExampleCard() {
           </select>
         </Row>
         <Row label="Language (optional)">
-          <input type="text" aria-label="Transcription language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Auto-detect (e.g. tr, en)" maxLength={2} pattern="[A-Za-z]{2}" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background" />
+          <input type="text" aria-label="Transcription language" aria-invalid={!languageValid} aria-describedby="stt-language-help" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Auto-detect (e.g. tr, en)" maxLength={2} pattern="[A-Za-z]{2}" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background" />
+          <p id="stt-language-help" className="text-xs text-red-500" role={languageError ? "alert" : undefined}>{languageError}</p>
           <p className="mt-1 text-xs text-text-muted">Optional two-letter code; leave empty for automatic language detection.</p>
         </Row>
         <div className="flex flex-wrap justify-between gap-2 mt-2">
           <span className="text-xs font-semibold text-text-muted uppercase">Request</span>
           <div className="flex gap-3">
-            <button onClick={() => copyCurl(curl)} className="text-xs text-primary">{copiedCurl ? "Copied" : "Copy curl"}</button>
-            <button onClick={handleRun} disabled={running || !audioFile} className="px-3 py-1 rounded-lg bg-primary text-white text-xs disabled:opacity-50">{running ? "Transcribing..." : "Run"}</button>
+            <button onClick={() => copyCurl(curl)} disabled={!languageValid} className="text-xs text-primary disabled:opacity-50">{copiedCurl ? "Copied" : "Copy curl"}</button>
+            <button onClick={handleRun} disabled={running || !audioFile || !languageValid} className="px-3 py-1 rounded-lg bg-primary text-white text-xs disabled:opacity-50">{running ? "Transcribing..." : "Run"}</button>
           </div>
         </div>
         <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs overflow-x-auto whitespace-pre-wrap break-all">{curl}</pre>
