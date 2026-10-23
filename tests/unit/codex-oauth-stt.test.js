@@ -172,12 +172,14 @@ it("does not retry when refresh returns unchanged or malformed credentials", asy
   expect(response.status).toBe(502); expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
   expect(await response.text()).not.toContain("test-access");
 });
-it.each([429, 500, 403])("sanitizes upstream %s and does not loop accounts", async (status) => {
+it.each([429, 500, 503])("sanitizes upstream %s and only locks the account for account-scoped failures", async (status) => {
   deps.proxyAwareFetch.mockResolvedValue(new Response("test-access asset_pointer secret", { status }));
   const response = await POST(authorized());
   expect(response.status).toBe(status === 429 ? 429 : 502);
   expect(await response.text()).not.toContain("test-access");
   expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
+  if (status === 503) expect(deps.markAccountUnavailable).not.toHaveBeenCalled();
+  else expect(deps.markAccountUnavailable).toHaveBeenCalledWith("test-connection", status, "Codex transcription failed", "codex", "transcribe");
 });
 it.each([{ text: 123 }, {}, { text: null }])("rejects malformed upstream JSON", async (data) => {
   deps.proxyAwareFetch.mockResolvedValue(Response.json(data));

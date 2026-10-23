@@ -205,7 +205,11 @@ export async function handleCodexTranscription(request) {
     if (!response.ok) {
       await response.body?.cancel();
       const status = response.status === 429 ? 429 : response.status === 401 ? 502 : 502;
-      await markAccountUnavailable(credentials.connectionId, response.status, "Codex transcription failed", "codex", "transcribe");
+      // A generic upstream 503 indicates service availability, not that this
+      // Codex OAuth account is unhealthy. Do not persist a cooldown for it.
+      if (response.status !== 503) {
+        await markAccountUnavailable(credentials.connectionId, response.status, "Codex transcription failed", "codex", "transcribe");
+      }
       return errorResponse(status, status === 429 ? "Codex transcription is rate limited" : "Codex transcription failed");
     }
     const result = await readBounded(response.body, 1024 * 1024, signal, 502);
