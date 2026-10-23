@@ -21,7 +21,15 @@ export function TtsExampleCard() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const { copied, copy } = useCopyToClipboard();
-  const curl = buildSpeechCurl(endpoint, input, language, Number(speed));
+  let curl = "";
+  let previewError = "";
+  try {
+    // Inputs can be temporarily incomplete while typing; never throw from render.
+    buildSpeechRequest({ input: input || "Hello, world!", language, speed: Number(speed) });
+    curl = buildSpeechCurl(endpoint, input, language, Number(speed));
+  } catch (e) {
+    previewError = e.message;
+  }
 
   const handleRun = async () => {
     if (!input.trim() || running) return;
@@ -56,14 +64,15 @@ export function TtsExampleCard() {
         <div className="flex flex-wrap justify-between gap-2 mt-2">
           <span className="text-xs font-semibold text-text-muted uppercase">Request</span>
           <div className="flex gap-3">
-            <button onClick={() => copy(curl)} className="text-xs text-primary">{copied ? "Copied" : "Copy curl"}</button>
-            <button onClick={handleRun} disabled={running || !input.trim()} className="px-3 py-1 rounded-lg bg-primary text-white text-xs disabled:opacity-50">{running ? "Generating..." : "Run"}</button>
+            <button onClick={() => copy(curl)} disabled={!!previewError} className="text-xs text-primary">{copied ? "Copied" : "Copy curl"}</button>
+            <button onClick={handleRun} disabled={running || !input.trim() || !!previewError} className="px-3 py-1 rounded-lg bg-primary text-white text-xs disabled:opacity-50">{running ? "Generating..." : "Run"}</button>
           </div>
         </div>
-        <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs overflow-x-auto whitespace-pre-wrap break-all">{curl}</pre>
+        <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs overflow-x-auto whitespace-pre-wrap break-all">{curl || "Complete the language and speed fields to preview the request."}</pre>
+        {previewError && <p role="alert" className="text-xs text-red-500 break-words">{previewError}</p>}
         {error && <p role="alert" className="text-xs text-red-500 break-words">{error}</p>}
         <div className="flex justify-between gap-2 mt-2"><span className="text-xs font-semibold text-text-muted uppercase">Response {latency !== null ? `· ${latency}ms` : ""}</span></div>
-        {audioUrl && <div className="flex flex-col gap-2"><audio controls src={audioUrl} className="w-full">Audio playback is not supported by this browser.</audio><a href={audioUrl} download={`speech.${format}`} className="text-xs text-primary hover:underline">Download audio</a></div>}
+        {audioUrl && <div className="flex flex-col gap-2"><audio controls src={audioUrl} className="w-full">Audio playback is not supported by this browser.</audio><a href={audioUrl} download="speech.mp3" className="text-xs text-primary hover:underline">Download audio</a></div>}
       </div>
     </Card>
   );
