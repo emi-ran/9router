@@ -117,14 +117,19 @@ function validateCredentials(credentials) {
     throw failure(503, "A valid Codex OAuth account is required");
   }
 }
-async function send(audio, credentials, signal) {
+async function send(audio, credentials, signal, language = null) {
   const form = new FormData();
   form.set("file", audio, "audio.wav");
+  if (language) form.set("language", language);
   const proxy = await resolveConnectionProxyConfig(credentials._connection?.providerSpecificData || credentials.providerSpecificData);
   if (proxy.source === "error") throw failure(503, "Account proxy is unavailable");
   const boundary = `----9router-codex-${crypto.randomUUID()}`;
   const parts = [];
   for (const [name, value] of form) {
+    if (typeof value === "string") {
+      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+      continue;
+    }
     parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${value.name}"\r\nContent-Type: ${value.type || "application/octet-stream"}\r\n\r\n`));
     parts.push(Buffer.from(await value.arrayBuffer()));
     parts.push(Buffer.from("\r\n"));
@@ -177,10 +182,15 @@ export async function handleCodexTranscription(request) {
     for (const [key] of form) {
       if (!["model", "file", "response_format", "language", "prompt", "temperature"].includes(key) || form.getAll(key).length !== 1) throw failure(400, "Unsupported or duplicate form field");
     }
+    const language = form.get("language");
+    if (language != null && (typeof language !== "string" || !/^[a-zA-Z]{2}$/.test(language))) {
+      throw failure(400, "language must be a two-letter ISO 639-1 code (for example: tr, en)");
+    }
+    const transcriptionLanguage = language == null ? null : language.toLowerCase();
     if (!["cx/transcribe", "codex/transcribe"].includes(form.get("model"))) throw failure(400, "Use model cx/transcribe");
     const format = form.get("response_format") || "json";
     if (!["json", "text"].includes(format)) throw failure(400, "Only json and text response formats are supported");
-    for (const key of ["language", "prompt", "temperature"]) {
+    for (const key of ["prompt", "temperature"]) {
       if (form.has(key) && form.get(key) !== "") throw failure(400, `${key} is not supported by Codex transcription`);
     }
     const file = form.get("file");
@@ -193,14 +203,14 @@ export async function handleCodexTranscription(request) {
     credentials = await boundedRefresh(credentials, signal);
     validateCredentials(credentials);
     const audio = await convertAudio(file, signal);
-    let response = await send(audio, credentials, signal);
+    let response = await send(audio, credentials, signal, transcriptionLanguage);
     if (response.status === 401 && credentials.refreshToken) {
       await response.body?.cancel();
       const previous = credentials.accessToken;
       credentials = await boundedRefresh(credentials, signal, { force: true });
       validateCredentials(credentials);
       if (credentials.accessToken === previous) throw failure(502, "Codex OAuth refresh failed");
-      response = await send(audio, credentials, signal);
+      response = await send(audio, credentials, signal, transcriptionLanguage);
     }
     if (!response.ok) {
       await response.body?.cancel();

@@ -105,8 +105,21 @@ it.each(["openai/whisper-1", "kiro/transcribe", "cx/whisper-1", "http://attacker
 it.each(["verbose_json", "srt", "vtt", "binary"])("rejects unsupported response format %s", async (response_format) => {
   expect((await POST(authorized({ response_format }))).status).toBe(400);
 });
-it.each(["prompt", "language", "temperature", "baseUrl"])("rejects unsupported input %s", async (key) => {
+it.each(["prompt", "temperature", "baseUrl"])("rejects unsupported input %s", async (key) => {
   expect((await POST(authorized({ [key]: "value" }))).status).toBe(400);
+  expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+});
+it("forwards a valid language hint to the Codex transcribe endpoint", async () => {
+  deps.proxyAwareFetch.mockImplementationOnce(async (_url, init) => {
+    const raw = Buffer.from(await init.body.arrayBuffer()).toString("latin1");
+    expect(raw).toContain("name=\"language\"\r\n\r\ntr");
+    return Response.json({ text: "Merhaba" });
+  });
+  const response = await POST(authorized({ language: "tr" }));
+  expect(response.status).toBe(200);
+});
+it.each(["", "not_a_language_code", "tr-TR", "../../tr"])("rejects invalid language hint %j", async (language) => {
+  expect((await POST(authorized({ language }))).status).toBe(400);
   expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
 });
 it("returns text format with no asset metadata", async () => {

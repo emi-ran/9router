@@ -14,6 +14,7 @@ const getServerOrigin = () => "";
 export function SttExampleCard() {
   const [audioFile, setAudioFile] = useState(null);
   const [responseFormat, setResponseFormat] = useState("json");
+  const [language, setLanguage] = useState("");
   const [apiKey, setApiKey] = useState("");
   const endpoint = useSyncExternalStore(subscribeOrigin, getOrigin, getServerOrigin);
   const [result, setResult] = useState(null);
@@ -23,7 +24,7 @@ export function SttExampleCard() {
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
   const { copied: copiedResult, copy: copyResult } = useCopyToClipboard();
 
-  const curl = buildTranscriptionCurl(endpoint, audioFile?.name || "audio.mp3", responseFormat);
+  const curl = buildTranscriptionCurl(endpoint, audioFile?.name || "audio.mp3", responseFormat, language);
   const resultText = result === null ? (responseFormat === "text" ? "Hello world..." : '{\n  "text": "Hello world..."\n}')
     : typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
@@ -34,7 +35,7 @@ export function SttExampleCard() {
     setResult(null);
     const start = Date.now();
     try {
-      const response = await fetch("/api/v1/audio/transcriptions", buildTranscriptionRequest(audioFile, responseFormat, apiKey));
+      const response = await fetch("/api/v1/audio/transcriptions", buildTranscriptionRequest(audioFile, responseFormat, apiKey, language));
       setResult(await readTranscriptionResponse(response));
       setLatency(Date.now() - start);
     } catch (e) {
@@ -62,6 +63,10 @@ export function SttExampleCard() {
             <option value="json">json</option>
             <option value="text">text</option>
           </select>
+        </Row>
+        <Row label="Language (optional)">
+          <input type="text" aria-label="Transcription language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Auto-detect (e.g. tr, en)" maxLength={2} pattern="[A-Za-z]{2}" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background" />
+          <p className="mt-1 text-xs text-text-muted">Optional two-letter code; leave empty for automatic language detection.</p>
         </Row>
         <div className="flex flex-wrap justify-between gap-2 mt-2">
           <span className="text-xs font-semibold text-text-muted uppercase">Request</span>
