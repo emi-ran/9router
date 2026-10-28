@@ -144,6 +144,19 @@ docker run --rm -p 20128:20128 \
 
 The Dockerfile uses the official Alpine and npm registries by default.
 
+The default builder/runner image is `node:22.23.4-alpine`, with patched bundled
+Undici 6.29.1. Keep `NODE_IMAGE` overrides on a patched supported runtime:
+Node 22.23.4+ (22.x) or 24.22.1+ (24.x). npm Undici 7.30.1 supplies proxy
+dispatchers; it does **not** replace Node's built-in fetch response decoder.
+Changing a lockfile cannot patch an existing image or running process; rebuild
+and restart through the normal deployment process. No deployment is implied by
+this source change. Advisory/release sources: `docs/NEXT-SECURITY-UPGRADE.md`.
+
+Certificate errors now fail closed, including through a proxy. `STRICT_SSL` is
+ignored; no value enables an insecure retry. If a corporate CA is required,
+mount its public certificate read-only and set `NODE_EXTRA_CA_CERTS` at startup;
+do not disable verification with `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+
 Dependencies install with `npm ci` from `package.json` and `package-lock.json`,
 copied together before application source to preserve dependency-layer caching.
 Keep both files synchronized; lockfile mismatches fail the build. The npm cache
@@ -225,3 +238,11 @@ GHCR publishing uses the workflow's `GITHUB_TOKEN` with package write permission
 The optional repository variables `ALPINE_MIRROR` and `NPM_REGISTRY` can override the default package mirrors used by the CI Docker build.
 
 Workflow: `.github/workflows/docker-publish.yml`
+# Runtime dependency tracing
+
+The runtime image explicitly copies `undici` alongside the `open-sse` source:
+its proxy transport imports Undici dynamically, which standalone tracing can omit.
+Builds run inside the image, isolated from host account storage.
+On 2026-10-28, the local image build completed with Node v22.23.4; a
+container check loaded Undici 7.30.1 and its `ProxyAgent`. This is local image
+evidence, not verification of a deployed instance.

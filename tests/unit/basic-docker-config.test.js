@@ -7,6 +7,15 @@ const read = (name) => readFileSync(new URL(`../../${name}`, import.meta.url), "
 const dockerfile = read("Dockerfile").replace(/\r\n/g, "\n");
 const rules = read(".dockerignore").split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith("#"));
 
+test("Node runtime and npm dispatcher have separate patched security floors", () => {
+  assert.match(dockerfile, /^ARG NODE_IMAGE=node:22\.23\.4-alpine$/m);
+  const manifest = JSON.parse(read("package.json"));
+  const lock = JSON.parse(read("package-lock.json"));
+  assert.equal(manifest.engines.node, "^22.23.4 || ^24.22.1");
+  assert.equal(manifest.dependencies.undici, "^7.30.1");
+  assert.equal(lock.packages["node_modules/undici"].version, "7.30.1");
+});
+
 // Only the glob subset used here: ordered exclusions/negations, including parents.
 function ignored(path) {
   const parts = path.split("/");

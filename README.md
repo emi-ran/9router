@@ -7,7 +7,10 @@ supports **TinyFish** and **Tavily** only.
 
 ## Run from source
 
-Use installed Node.js/npm dependencies:
+Use patched Node.js **22.23.4+ (22.x)** or **24.22.1+ (24.x)** and npm.
+The npm `undici` dependency and Node's built-in fetch decoder require separate
+updates; `npm install` does not patch the installed Node executable. See
+`docs/NEXT-SECURITY-UPGRADE.md` for the advisory and runtime verification.
 
 Next.js is pinned to `16.4.3` for the security update from installed `16.4.0`.
 `experimental.agentUpgrade: "security"` enables security upgrade reminders;
@@ -28,6 +31,13 @@ upstream published npm/Docker artifacts are not releases of this reduced fork.
 Keep npm lockfiles and project documentation in Git. Dependency directories,
 local Next.js build outputs and Playwright capture logs are ignored; `.env`
 files remain private, with `.env.example` available as a tracked template.
+
+Outbound TLS verification is mandatory: certificate failures are returned without
+insecure retry or proxy-to-direct replay. Legacy `STRICT_SSL` is no longer read;
+unset, `false` and `0` cannot disable verification. Corporate CAs must be trusted
+explicitly through `NODE_EXTRA_CA_CERTS` before starting Node. Do not use
+`NODE_TLS_REJECT_UNAUTHORIZED=0`. `strictProxy` still controls direct fallback for
+ordinary proxy connection failures; it is independent of certificate verification.
 
 ## Connect and route
 
@@ -90,3 +100,5 @@ prove runtime acceptance.
 MIT, preserved in `LICENSE`. Upstream 9Router attribution preserved in Git history
 and license. Historical translated/upstream guides are not supported-feature
 specifications for this fork.
+
+28 Ekim 2026 güvenlik takibi: lock dosyasındaki body-parser 2.4.0, qs 6.17.0, ip-address 10.7.5 ve geliştirme zincirindeki zod 4.6.7 güncellendi; `npm audit` sıfır bulgu bildirdi.

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:22-alpine
+ARG NODE_IMAGE=node:22.23.4-alpine
 ARG ALPINE_MIRROR=dl-cdn.alpinelinux.org
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 ARG APP_VERSION=unknown
@@ -67,6 +67,9 @@ COPY --from=builder /app/node_modules/next ./node_modules/next
 COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
 # node-machine-id is createRequire-loaded at runtime; tracing omits it.
 COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machine-id
+# The copied open-sse source dynamically imports Undici for HTTP proxies;
+# standalone tracing does not necessarily include this runtime dependency.
+COPY --from=builder /app/node_modules/undici ./node_modules/undici
 
 RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \

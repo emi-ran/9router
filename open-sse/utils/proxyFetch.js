@@ -230,44 +230,29 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  */
-async function getDispatcher(proxyUrl, insecure = false) {
+async function getDispatcher(proxyUrl) {
   const normalized = normalizeProxyUrl(proxyUrl);
-  if (!normalized && !insecure) return null;
+  if (!normalized) return null;
 
-  const key = `${normalized || "direct"}::${insecure ? "insecure" : "secure"}`;
+  const key = normalized;
   if (!proxyDispatchers.has(key)) {
     // Evict oldest entry if max size reached
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
       proxyDispatchers.delete(proxyDispatchers.keys().next().value);
     }
-    const { Agent, ProxyAgent } = await import("undici");
-    const connect = insecure ? { rejectUnauthorized: false } : undefined;
-    const dispatcher = normalized
-      ? new ProxyAgent({ uri: normalized, ...(insecure ? { requestTls: connect } : {}) })
-      : new Agent({ connect });
+    const { ProxyAgent } = await import("undici");
+    const dispatcher = new ProxyAgent({ uri: normalized });
     proxyDispatchers.set(key, dispatcher);
   }
 
   return proxyDispatchers.get(key);
 }
 
-async function fetchWithTlsFallback(url, options, proxyUrl) {
-  try {
-    const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : undefined;
-    return await originalFetch(url, dispatcher ? { ...options, dispatcher } : options);
-  } catch (err) {
-    const isStrictSsl = process.env.STRICT_SSL === "true" || process.env.STRICT_SSL === "1";
-    if (!isStrictSsl && isTlsCertError(err)) {
-      if (options.body && typeof options.body.getReader === "function" && options.body.locked) {
-        throw err;
-      }
-      // ponytail: in-memory insecure agent fallback for self-signed MITM corporate/antivirus certs
-      console.warn(`[ProxyFetch] TLS cert verification failed (${err.cause?.code || err.code}), retrying with insecure TLS: ${url}`);
-      const insecureDispatcher = await getDispatcher(proxyUrl, true);
-      return await originalFetch(url, { ...options, dispatcher: insecureDispatcher });
-    }
-    throw err;
-  }
+async function fetchWithDispatcher(url, options, proxyUrl) {
+  // Keep Node's fetch/decoder; npm undici supplies only the proxy transport.
+  // Certificate failures propagate: never downgrade TLS or replay credentials.
+  const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : undefined;
+  return originalFetch(url, dispatcher ? { ...options, dispatcher } : options);
 }
 
 /**
@@ -356,8 +341,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     if (proxyUrl) {
       // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
       try {
-        return await fetchWithTlsFallback(url, options, proxyUrl);
+        return await fetchWithDispatcher(url, options, proxyUrl);
       } catch (proxyError) {
+        if (isTlsCertError(proxyError)) throw proxyError;
         if (proxyOptions?.strictProxy === true) {
           throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
         }
@@ -370,20 +356,22 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       const realIP = await resolveRealIP(parsedUrl.hostname);
       if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
     } catch (error) {
+      if (isTlsCertError(error)) throw error;
       console.warn(`[ProxyFetch] MITM bypass failed: ${error.message}`);
     }
   }
 
   if (proxyUrl) {
     try {
-      return await fetchWithTlsFallback(url, options, proxyUrl);
+      return await fetchWithDispatcher(url, options, proxyUrl);
     } catch (proxyError) {
+      if (isTlsCertError(proxyError)) throw proxyError;
       // If strictProxy is enabled, fail hard instead of falling back to direct
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
       }
       console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
-      return fetchWithTlsFallback(url, options, null);
+      return fetchWithDispatcher(url, options, null);
     }
   }
 
@@ -407,7 +395,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
 
   // got-scraping disabled — use native fetch directly
   // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
-  return fetchWithTlsFallback(url, options, null);
+  return fetchWithDispatcher(url, options, null);
 }
 
 /**
