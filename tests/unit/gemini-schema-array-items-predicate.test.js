@@ -2,6 +2,28 @@ import { describe, it, expect } from "vitest";
 import { cleanJSONSchemaForAntigravity } from "../../open-sse/translator/formats/gemini.js";
 
 describe("cleanJSONSchemaForAntigravity handles array items and type predicates", () => {
+  it("preserves schema-keyword property names at every object depth", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        items: { type: "string" },
+        properties: { type: "string" },
+        required: { type: "string" },
+        nested: { type: "array", items: { type: "object", properties: {
+          items: { type: "string" }, properties: { type: "string" }, required: { type: "string" },
+        }, required: ["items", "properties", "required"] } },
+      },
+      required: ["items", "properties", "required"],
+    };
+    const cleaned = cleanJSONSchemaForAntigravity(structuredClone(schema));
+    for (const name of ["items", "properties", "required"]) {
+      expect(cleaned.properties[name]).toEqual({ type: "string" });
+      expect(cleaned.properties.nested.items.properties[name]).toEqual({ type: "string" });
+    }
+    expect(cleaned.required).toEqual(["items", "properties", "required"]);
+    expect(cleaned.properties.nested.items.required).toEqual(["items", "properties", "required"]);
+  });
+
   it("removes items field when type is not array (fixing: field predicate failed: $type == Type.ARRAY)", () => {
     const schema = {
       type: "object",

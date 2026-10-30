@@ -144,8 +144,12 @@ export function generateProjectId() {
 
 // Helper: Remove unsupported keywords recursively from object/array
 // Also strips all vendor extension fields (x- prefixed) not supported by Gemini
-function removeUnsupportedKeywords(obj, keywords) {
+function removeUnsupportedKeywords(obj, keywords, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) removeUnsupportedKeywords(value, keywords);
+    return;
+  }
 
   if (Array.isArray(obj)) {
     for (const item of obj) {
@@ -162,30 +166,38 @@ function removeUnsupportedKeywords(obj, keywords) {
 
     const value = obj[key];
     if (value && typeof value === "object") {
-      removeUnsupportedKeywords(value, keywords);
+      removeUnsupportedKeywords(value, keywords, key === "properties");
     }
   }
 }
 
 // Convert const to enum
-function convertConstToEnum(obj) {
+function convertConstToEnum(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) convertConstToEnum(value);
+    return;
+  }
 
   if (obj.const !== undefined && !obj.enum) {
     obj.enum = [obj.const];
     delete obj.const;
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      convertConstToEnum(value);
+      convertConstToEnum(value, key === "properties");
     }
   }
 }
 
 // Convert enum values to strings (Gemini requires string enum values + explicit type:"string")
-function convertEnumValuesToStrings(obj) {
+function convertEnumValuesToStrings(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) convertEnumValuesToStrings(value);
+    return;
+  }
 
   if (obj.enum && Array.isArray(obj.enum)) {
     obj.enum = obj.enum.map(v => String(v));
@@ -195,16 +207,20 @@ function convertEnumValuesToStrings(obj) {
     }
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      convertEnumValuesToStrings(value);
+      convertEnumValuesToStrings(value, key === "properties");
     }
   }
 }
 
 // Merge allOf schemas
-function mergeAllOf(obj) {
+function mergeAllOf(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) mergeAllOf(value);
+    return;
+  }
 
   if (obj.allOf && Array.isArray(obj.allOf)) {
     const merged = {};
@@ -229,9 +245,9 @@ function mergeAllOf(obj) {
     if (merged.required) obj.required = [...(obj.required || []), ...merged.required];
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      mergeAllOf(value);
+      mergeAllOf(value, key === "properties");
     }
   }
 }
@@ -264,8 +280,12 @@ function selectBest(items) {
 }
 
 // Flatten anyOf/oneOf
-function flattenAnyOfOneOf(obj) {
+function flattenAnyOfOneOf(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) flattenAnyOfOneOf(value);
+    return;
+  }
 
   if (obj.anyOf && Array.isArray(obj.anyOf) && obj.anyOf.length > 0) {
     const nonNullSchemas = obj.anyOf.filter(s => s && s.type !== "null");
@@ -287,16 +307,20 @@ function flattenAnyOfOneOf(obj) {
     }
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      flattenAnyOfOneOf(value);
+      flattenAnyOfOneOf(value, key === "properties");
     }
   }
 }
 
 // Flatten type arrays
-function flattenTypeArrays(obj) {
+function flattenTypeArrays(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) flattenTypeArrays(value);
+    return;
+  }
 
   if (obj.type && Array.isArray(obj.type)) {
     const nonNullTypes = obj.type.filter(t => t !== "null");
@@ -324,24 +348,32 @@ function flattenTypeArrays(obj) {
     }
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      flattenTypeArrays(value);
+      flattenTypeArrays(value, key === "properties");
     }
   }
 }
 
 // Infer missing type=object when properties exist (Gemini requires explicit type)
-function ensureObjectType(obj) {
+function ensureObjectType(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) ensureObjectType(value);
+    return;
+  }
   if (obj.properties && !obj.type) obj.type = "object";
-  for (const v of Object.values(obj)) if (v && typeof v === "object") ensureObjectType(v);
+  for (const [key, v] of Object.entries(obj)) if (v && typeof v === "object") ensureObjectType(v, key === "properties");
 }
 
 // Convert prefixItems (tuple validation) to items — Gemini cannot express tuples,
 // and a type:"array" schema without items is rejected with "missing field"
-function convertPrefixItems(obj) {
+function convertPrefixItems(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) convertPrefixItems(value);
+    return;
+  }
 
   if (Array.isArray(obj.prefixItems) && obj.prefixItems.length > 0) {
     const variants = obj.prefixItems.filter(s => s && s.type !== "null");
@@ -353,16 +385,20 @@ function convertPrefixItems(obj) {
     delete obj.prefixItems;
   }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      convertPrefixItems(value);
+      convertPrefixItems(value, key === "properties");
     }
   }
 }
 
 // Gemini requires items on every type:"array" schema — fill a permissive placeholder
-function ensureArrayItems(obj) {
+function ensureArrayItems(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) ensureArrayItems(value);
+    return;
+  }
   if (obj.type === "array") {
     if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
       obj.items = { type: "string" };
@@ -376,18 +412,22 @@ function ensureArrayItems(obj) {
       }
     }
   }
-  for (const v of Object.values(obj)) if (v && typeof v === "object") ensureArrayItems(v);
+  for (const [key, v] of Object.entries(obj)) if (v && typeof v === "object") ensureArrayItems(v, key === "properties");
 }
 
 // Gemini Schema proto validation rules:
 // 1. Schema.items predicate: $type == Type.ARRAY. If type is not "array", items field MUST NOT exist.
 // 2. Schema.properties / required predicate: $type == Type.OBJECT. If type is not "object", properties and required MUST NOT exist.
-function enforceTypeConstraints(obj) {
+function enforceTypeConstraints(obj, isProperties = false) {
   if (!obj || typeof obj !== "object") return;
+  if (isProperties) {
+    for (const value of Object.values(obj)) enforceTypeConstraints(value);
+    return;
+  }
 
-  for (const value of Object.values(obj)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === "object") {
-      enforceTypeConstraints(value);
+      enforceTypeConstraints(value, key === "properties");
     }
   }
 
@@ -441,8 +481,12 @@ export function cleanJSONSchemaForAntigravity(schema) {
   removeUnsupportedKeywords(cleaned, UNSUPPORTED_SCHEMA_CONSTRAINTS);
 
   // Phase 4: Cleanup required fields recursively
-  function cleanupRequired(obj) {
+  function cleanupRequired(obj, isProperties = false) {
     if (!obj || typeof obj !== "object") return;
+    if (isProperties) {
+      for (const value of Object.values(obj)) cleanupRequired(value);
+      return;
+    }
 
     if (obj.required && Array.isArray(obj.required) && obj.properties) {
       const validRequired = obj.required.filter(field =>
@@ -456,9 +500,9 @@ export function cleanJSONSchemaForAntigravity(schema) {
     }
 
     // Recurse into nested objects
-    for (const value of Object.values(obj)) {
+    for (const [key, value] of Object.entries(obj)) {
       if (value && typeof value === "object") {
-        cleanupRequired(value);
+        cleanupRequired(value, key === "properties");
       }
     }
   }
@@ -466,8 +510,12 @@ export function cleanJSONSchemaForAntigravity(schema) {
   cleanupRequired(cleaned);
 
   // Phase 5: Add placeholder for empty object schemas (Antigravity requirement)
-  function addPlaceholders(obj) {
+  function addPlaceholders(obj, isProperties = false) {
     if (!obj || typeof obj !== "object") return;
+    if (isProperties) {
+      for (const value of Object.values(obj)) addPlaceholders(value);
+      return;
+    }
 
     // Empty schema {} (no type, no properties) after $ref removal — treat as object with placeholder
     if (Object.keys(obj).length === 0) {
@@ -495,9 +543,9 @@ export function cleanJSONSchemaForAntigravity(schema) {
     }
 
     // Recurse into nested objects
-    for (const value of Object.values(obj)) {
+    for (const [key, value] of Object.entries(obj)) {
       if (value && typeof value === "object") {
-        addPlaceholders(value);
+        addPlaceholders(value, key === "properties");
       }
     }
   }

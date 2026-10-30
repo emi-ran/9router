@@ -448,8 +448,6 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
       if (requestScoped) {
         if (!requestScopedResult) requestScopedResult = result;
-        lastError = errorText || String(result.status);
-        if (!lastStatus) lastStatus = result.status;
         log.warn("COMBO", `Model ${modelStr} rejected the request, trying next`, { status: result.status });
         continue;
       }
@@ -480,7 +478,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
   }
 
-  if (requestScopedResult) return requestScopedResult;
+  if (requestScopedResult && !lastStatus) return requestScopedResult;
 
   // All models failed
   // Use 503 (Service Unavailable) rather than 406 (Not Acceptable) — 406 implies

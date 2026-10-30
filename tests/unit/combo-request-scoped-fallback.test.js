@@ -83,10 +83,9 @@ describe("combo fallback — request-scoped 4xx from a member", () => {
     expect(handleSingleModel).toHaveBeenCalledTimes(2);
   });
 
-  it("returns the rejected member's response when a later member fails differently", async () => {
-    // Boundary case: member 1 rejected the request, member 2 failed for an
-    // unrelated reason. No member served it, so the request-scoped failure is the
-    // actionable answer and its own status/body are returned.
+  it("returns a retryable failure when another member is unavailable", async () => {
+    // A validation rejection by one member does not establish that an unavailable
+    // member would reject the same request after it recovers.
     const handleSingleModel = vi.fn(async (_body, modelStr) => (
       modelStr === "provider-a/model-a"
         ? validationError("Request validation failed")
@@ -101,9 +100,9 @@ describe("combo fallback — request-scoped 4xx from a member", () => {
       comboStrategy: "fallback",
     });
 
-    expect(result.status).toBe(400);
+    expect(result.status).toBe(503);
     const body = await result.json();
-    expect(body.error.message).toBe("Request validation failed");
+    expect(body.error.message).toBe("service unavailable");
     expect(handleSingleModel).toHaveBeenCalledTimes(2);
   });
 });
