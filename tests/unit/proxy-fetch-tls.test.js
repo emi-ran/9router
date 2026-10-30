@@ -96,6 +96,18 @@ describe("existing transport contracts", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])("strict connection noProxy bypasses directly (custom transport=%s)", async (custom) => {
+    const response = new Response("ok");
+    fetchMock.mockResolvedValue(response);
+    const directFetch = vi.fn().mockResolvedValue(response);
+    const options = custom ? { directFetch } : {};
+    await expect(proxyAwareFetch("https://upstream.example/path", options,
+      { enabled: true, url: "http://127.0.0.1:43180", noProxy: ".example", strictProxy: true })).resolves.toBe(response);
+    expect(ProxyAgent).not.toHaveBeenCalled();
+    if (custom) expect(directFetch).toHaveBeenCalledWith("https://upstream.example/path", {}, null);
+    else expect(fetchMock).toHaveBeenCalledWith("https://upstream.example/path", {});
+  });
+
   it("NO_PROXY bypass remains direct", async () => {
     vi.stubEnv("HTTPS_PROXY", "http://127.0.0.1:43180");
     vi.stubEnv("NO_PROXY", ".example");

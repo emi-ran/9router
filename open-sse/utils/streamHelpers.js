@@ -76,7 +76,7 @@ export function hasValuableContent(chunk, format) {
 // "AI_InvalidResponseDataError: Expected 'id' to be a string." and abort the
 // whole turn.
 //
-// Fix: remember the id per tool-call index, and mint one when a fragment
+// Fix: remember the id per choice and tool-call index, and mint one when a fragment
 // opens an index the client has not seen yet. The id must be stable for the
 // rest of the call, so a later fragment with the same index reuses it.
 //
@@ -92,18 +92,23 @@ export function ensureStreamToolCallIds(chunk, seenIds) {
     for (const tc of calls) {
       if (!tc || typeof tc !== "object") continue;
 
-      if (typeof tc.id === "string" && tc.id.length > 0) {
-        if (tc.index !== undefined) seenIds.set(tc.index, tc.id);
+      const choiceIndex = choice.index ?? 0;
+      const key = tc.index === undefined ? undefined : `${choiceIndex}:${tc.index}`;
+      const known = key !== undefined ? seenIds.get(key) : undefined;
+      if (known) {
+        if (tc.id !== known) {
+          tc.id = known;
+          changed = true;
+        }
         continue;
       }
-
-      // No id on this fragment. Reuse the one already seen for this index, or
-      // mint one when the index is new to the client.
-      const known = tc.index !== undefined ? seenIds.get(tc.index) : undefined;
-      const id = known || fallbackToolCallId(tc.index);
-      tc.id = id;
-      if (tc.index !== undefined) seenIds.set(tc.index, id);
-      changed = true;
+      const supplied = typeof tc.id === "string" && tc.id.length > 0;
+      const id = supplied ? tc.id : fallbackToolCallId(`${choiceIndex}_${tc.index ?? "unknown"}`);
+      if (!supplied) {
+        tc.id = id;
+        changed = true;
+      }
+      if (key !== undefined) seenIds.set(key, id);
     }
   }
 

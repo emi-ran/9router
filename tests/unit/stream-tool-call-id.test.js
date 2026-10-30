@@ -59,7 +59,24 @@ describe("ensureStreamToolCallIds", () => {
 
     expect(ensureStreamToolCallIds(c, seen)).toBe(false);
     expect(c.choices[0].delta.tool_calls[0].id).toBe("call_from_upstream");
-    expect(seen.get(1)).toBe("call_from_upstream");
+    expect(seen.get("0:1")).toBe("call_from_upstream");
+  });
+
+  it("isolates choices and keeps the first emitted id when a provider id arrives late", () => {
+    const seen = new Map();
+    const first = chunk({}, { choices: [
+      { index: 0, delta: { tool_calls: [{ index: 0 }] } },
+      { index: 1, delta: { tool_calls: [{ index: 0, id: "call_choice_1" }] } },
+    ] });
+    ensureStreamToolCallIds(first, seen);
+    const synthetic = first.choices[0].delta.tool_calls[0].id;
+    const later = chunk({}, { choices: [
+      { index: 1, delta: { tool_calls: [{ index: 0 }] } },
+      { index: 0, delta: { tool_calls: [{ index: 0, id: "call_late" }] } },
+    ] });
+    ensureStreamToolCallIds(later, seen);
+    expect(later.choices[0].delta.tool_calls[0].id).toBe("call_choice_1");
+    expect(later.choices[1].delta.tool_calls[0].id).toBe(synthetic);
   });
 
   it("leaves chunks without tool_calls untouched", () => {
