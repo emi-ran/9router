@@ -64,3 +64,11 @@ describe("oc/deepseek-v4.1-flash-free reasoning levels", () => {
   });
 
 });
+
+it("caps the OpenCode free DeepSeek context at 330k", () => {
+  const caps = getCapabilitiesForModel("opencode", MODEL);
+  expect(caps.contextWindow).toBe(330000);
+  expect(caps.maxOutput).toBe(128000);
+  expect(caps.vision).toBe(true);
+  expect(caps.reasoning).toBe(true);
+});
