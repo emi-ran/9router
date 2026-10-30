@@ -70,6 +70,9 @@ COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machin
 # The copied open-sse source dynamically imports Undici for HTTP proxies;
 # standalone tracing does not necessarily include this runtime dependency.
 COPY --from=builder /app/node_modules/undici ./node_modules/undici
+# Native bindings are loaded dynamically and omitted by standalone tracing.
+COPY --from=builder /app/node_modules/wreq-js ./node_modules/wreq-js
+COPY --from=builder /app/node_modules/@wreq-js ./node_modules/@wreq-js
 
 RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \

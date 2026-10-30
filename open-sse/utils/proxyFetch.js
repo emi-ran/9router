@@ -393,6 +393,11 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     throw new Error("[ProxyFetch] Proxy required but none resolved (strictProxy=true)");
   }
 
+  if (options.directFetch) {
+    const { directFetch, ...fetchOptions } = options;
+    return directFetch(url, fetchOptions);
+  }
+
   // got-scraping disabled — use native fetch directly
   // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
   return fetchWithDispatcher(url, options, null);
