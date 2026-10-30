@@ -36,7 +36,7 @@ const OPENCODE_CIPHER_LIST = [
 
 const DEFAULT_TIMEOUT_MS = 120000;
 
-let sessionPromise = null;
+const sessions = new Map();
 
 export class OpencodeTlsUnavailableError extends Error {
   constructor(message) {
@@ -45,29 +45,33 @@ export class OpencodeTlsUnavailableError extends Error {
   }
 }
 
-async function loadSession() {
-  if (!sessionPromise) {
-    sessionPromise = (async () => {
+async function loadSession(proxyUrl) {
+  const key = proxyUrl || "";
+  if (!sessions.has(key)) {
+    const pending = (async () => {
       const wreq = await loadRuntimeDep("wreq-js");
       if (typeof wreq.createSession !== "function") {
         throw new Error("wreq-js runtime is missing createSession");
       }
       return wreq.createSession({
         emulation: { tlsOptions: { cipherList: OPENCODE_CIPHER_LIST } },
+        ...(proxyUrl ? { proxy: proxyUrl } : {}),
       });
     })().catch((error) => {
-      sessionPromise = null;
+      if (sessions.get(key) === pending) sessions.delete(key);
       throw error;
     });
+    sessions.set(key, pending);
   }
-  return sessionPromise;
+  return sessions.get(key);
 }
 
-/** Drop the cached session so the next call builds a fresh one. */
+/** Drop cached sessions so the next call builds fresh ones. */
 export function resetOpencodeTlsSession() {
-  const pending = sessionPromise;
-  sessionPromise = null;
-  pending?.then((session) => session.close?.()).catch(() => {});
+  for (const pending of sessions.values()) {
+    pending.then((session) => session.close?.()).catch(() => {});
+  }
+  sessions.clear();
 }
 
 /**
@@ -77,13 +81,13 @@ export function resetOpencodeTlsSession() {
  * Streaming is preserved: the response body is handed over as the live
  * ReadableStream, never buffered.
  */
-export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEFAULT_TIMEOUT_MS, proxyUrl = null } = {}) {
   let session;
   try {
-    session = await loadSession();
-  } catch (error) {
+    session = await loadSession(proxyUrl);
+  } catch {
     throw new OpencodeTlsUnavailableError(
-      `wreq-js unavailable (${error instanceof Error ? error.message : "unknown"}) — install the pinned wreq-js dependency to reach the OpenCode free tier`
+      `wreq-js unavailable — verify the pinned wreq-js dependency and proxy configuration`
     );
   }
 
@@ -96,7 +100,14 @@ export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEF
   if (init.body !== undefined) options.body = init.body;
   if (signal) options.signal = signal;
 
-  const res = await session.fetch(url, options);
+  let res;
+  try {
+    res = await session.fetch(url, options);
+  } catch (error) {
+    if (signal?.aborted) throw new DOMException("The operation was aborted", "AbortError");
+    if (proxyUrl) throw new Error("[OpenCode] TLS proxy request failed");
+    throw error;
+  }
   const headers = {};
   res.headers?.forEach?.((value, key) => {
     headers[key] = value;

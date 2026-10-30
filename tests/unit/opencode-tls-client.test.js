@@ -63,6 +63,25 @@ describe("opencodeTlsClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("isolates sessions by proxy", async () => {
+    createSessionMock.mockImplementation(async () => ({ fetch: vi.fn().mockResolvedValue(new Response("ok")), close: vi.fn() }));
+    const { opencodeTlsFetch } = await import("../../open-sse/services/opencodeTlsClient.js");
+    const proxy = "http://user:secret@127.0.0.1:7890";
+    await opencodeTlsFetch("https://opencode.ai/a", {}, { proxyUrl: proxy });
+    await opencodeTlsFetch("https://opencode.ai/a", {}, { proxyUrl: proxy });
+    await opencodeTlsFetch("https://opencode.ai/a", {});
+    expect(createSessionMock).toHaveBeenCalledTimes(2);
+    expect(createSessionMock.mock.calls[0][0].proxy).toBe(proxy);
+    expect(createSessionMock.mock.calls[1][0].proxy).toBeUndefined();
+  });
+
+  it("redacts proxy credentials from transport failures", async () => {
+    createSessionMock.mockResolvedValue({ fetch: vi.fn().mockRejectedValue(new Error("http://user:secret@proxy")) });
+    const { opencodeTlsFetch } = await import("../../open-sse/services/opencodeTlsClient.js");
+    await expect(opencodeTlsFetch("https://opencode.ai/a", {}, { proxyUrl: "http://user:secret@proxy" }))
+      .rejects.toThrow("[OpenCode] TLS proxy request failed");
+  });
+
   it("surfaces an actionable error when wreq-js is unavailable", async () => {
     loadRuntimeDepMock.mockRejectedValue(new Error("MODULE_NOT_FOUND"));
 

@@ -336,7 +336,16 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
   const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
   const proxyUrl = connectionProxyUrl || envProxyUrl;
-  if (options.directFetch && proxyUrl) throw new Error("[ProxyFetch] TLS transport cannot use proxy");
+  if (options.directFetch) {
+    const { directFetch, ...fetchOptions } = options;
+    const proxyIntended = proxyOptions?.proxyPoolId || proxyOptions?.enabled === true
+      || proxyOptions?.connectionProxyEnabled === true
+      || !!normalizeString(proxyOptions?.url ?? proxyOptions?.connectionProxyUrl);
+    if (!proxyUrl && proxyOptions?.strictProxy === true && proxyIntended) {
+      throw new Error("[ProxyFetch] Proxy required but none resolved (strictProxy=true)");
+    }
+    return directFetch(url, fetchOptions, proxyUrl);
+  }
 
   // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
   if (shouldBypassMitmDns(targetUrl)) {
@@ -393,11 +402,6 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     || !!normalizeString(proxyOptions?.url ?? proxyOptions?.connectionProxyUrl);
   if (proxyOptions?.strictProxy === true && proxyIntended) {
     throw new Error("[ProxyFetch] Proxy required but none resolved (strictProxy=true)");
-  }
-
-  if (options.directFetch) {
-    const { directFetch, ...fetchOptions } = options;
-    return directFetch(url, fetchOptions);
   }
 
   // got-scraping disabled — use native fetch directly

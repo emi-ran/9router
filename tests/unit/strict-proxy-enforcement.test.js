@@ -55,15 +55,33 @@ describe("strict pool keeps strictProxy when the pool is unusable (#4333)", () =
 });
 
 describe("strictProxy refuses a direct connection (#4333)", () => {
-  it("fails closed rather than bypassing the custom TLS transport for a proxy or relay", async () => {
-    const directFetch = () => { throw new Error("unexpected direct fetch"); };
-    for (const proxy of [
-      { enabled: true, url: "http://127.0.0.1:1", strictProxy: true },
-      { vercelRelayUrl: "http://127.0.0.1:1" },
-    ]) {
-      await expect(proxyAwareFetch("https://api.example.com/v1/chat", { directFetch }, proxy))
-        .rejects.toThrow(/TLS transport.*proxy|TLS transport.*relay/i);
-    }
+  it("routes custom TLS through the selected proxy and rejects relay", async () => {
+    const directFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    const response = await proxyAwareFetch("https://api.example.com/v1/chat", { directFetch },
+      { enabled: true, url: "http://user:secret@127.0.0.1:7890", strictProxy: true });
+    expect(await response.text()).toBe("ok");
+    expect(directFetch).toHaveBeenCalledWith("https://api.example.com/v1/chat", expect.anything(),
+      "http://user:secret@127.0.0.1:7890");
+    await expect(proxyAwareFetch("https://api.example.com", { directFetch },
+      { vercelRelayUrl: "http://127.0.0.1:1" })).rejects.toThrow(/TLS transport.*relay/i);
+  });
+  it("uses environment proxy selection and respects NO_PROXY", async () => {
+    const old = { ...process.env };
+    try {
+      process.env.HTTPS_PROXY = "http://127.0.0.1:1234";
+      process.env.NO_PROXY = "bypass.example";
+      const directFetch = vi.fn().mockResolvedValue(new Response("ok"));
+      await proxyAwareFetch("https://other.example", { directFetch });
+      await proxyAwareFetch("https://bypass.example", { directFetch });
+      expect(directFetch.mock.calls[0][2]).toBe("http://127.0.0.1:1234");
+      expect(directFetch.mock.calls[1][2]).toBeNull();
+    } finally { process.env = old; }
+  });
+  it("does not retry custom TLS directly after proxy failure", async () => {
+    const directFetch = vi.fn().mockRejectedValue(new Error("failed"));
+    await expect(proxyAwareFetch("https://api.example.com", { directFetch },
+      { enabled: true, url: "http://127.0.0.1:1" })).rejects.toThrow("failed");
+    expect(directFetch).toHaveBeenCalledTimes(1);
   });
   it("throws when a pool is assigned but no proxy url resolved", async () => {
     await expect(
