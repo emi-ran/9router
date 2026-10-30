@@ -15,6 +15,13 @@ const chat = (names) => names.map((name) => ({ type: "function", function: { nam
 const namesOf = (tools) => tools.map((tool) => tool.name ?? tool.function?.name);
 
 describe("opencodeFingerprint — request side", () => {
+  it("does not expose the router host filesystem or imply access to it", () => {
+    const body = { tools: [], instructions: "Caller guidance" };
+    applyFingerprintTools(body, true);
+    expect(body.instructions).toContain("<env>");
+    expect(body.instructions).not.toContain(process.cwd());
+    expect(body.instructions).not.toMatch(/Working directory:|Workspace root folder:|pre-created and approved/);
+  });
   it("appends exact read/shell definitions and leaves case variants untouched", () => {
     const body = { tools: flat(CC_TOOLS) };
     const map = applyFingerprintTools(body, true);
@@ -53,7 +60,7 @@ describe("opencodeFingerprint — request side", () => {
     const map = applyFingerprintTools(body, true);
     expect(namesOf(body.tools)).toEqual(OPENCODE_FINGERPRINT_TOOLS);
     expect(map.size).toBe(0);
-    expect(body.instructions).toBeUndefined();
+    expect(body.instructions).toContain("<env>");
   });
 
   it("drops duplicate declarations of one fingerprint name", () => {
@@ -136,7 +143,7 @@ describe("opencodeFingerprint — request side", () => {
 
     const map = applyFingerprintTools(body, false);
 
-    expect(body.system).toBe("  Preserve whitespace.\n\n\nDo not call the `shell` tool; it is a placeholder that does nothing. Use the other tools you have been given instead.");
+    expect(body.system).toContain("  Preserve whitespace.\n\n\nDo not call the `shell` tool; it is a placeholder that does nothing. Use the other tools you have been given instead.");
     expect(map.get("shell_client")).toBe("shell");
     expect(body.tools[0]).toBe(read);
     expect(body.tools[1].function).toEqual({ ...shell.function, name: "shell_client" });
@@ -150,7 +157,9 @@ describe("opencodeFingerprint — request side", () => {
     const system = [{ type: "text", text: "Caller guidance.", cache_control: { type: "ephemeral" } }];
     const body = { system, tools: exact.tools, messages: [] };
     applyFingerprintTools(body, false);
-    expect(body.system).toBe(system);
+    expect(body.system[0]).toBe(system[0]);
+    expect(body.system[1].text).toContain("<env>");
+    expect(body.system[1].text).not.toContain("Do not call");
   });
 
   it("retargets flat tool_choice that points at an aliased tool", () => {
@@ -222,6 +231,16 @@ describe("opencodeFingerprint — in-place normalization", () => {
     function: { name: tool.name, description: tool.description, parameters: tool.parameters },
   });
   const windowsShell = () => shellTool("Windows", "pwsh");
+
+  it("aliases a same-named tool whose argument constraints differ", () => {
+    const tool = windowsShell();
+    tool.parameters.properties.command.minLength = 10;
+    tool.parameters.required.push("workdir");
+    const body = { tools: [tool] };
+    const map = applyFingerprintTools(body, true);
+    expect(map.get("shell_client")).toBe("shell");
+    expect(body.tools[0].parameters).toEqual(tool.parameters);
+  });
 
   it("keeps the caller's name and adopts OpenCode's definition when arguments line up", () => {
     const body = { tools: [windowsShell(), { type: "function", name: "Edit" }] };

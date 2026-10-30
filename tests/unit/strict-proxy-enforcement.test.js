@@ -55,6 +55,16 @@ describe("strict pool keeps strictProxy when the pool is unusable (#4333)", () =
 });
 
 describe("strictProxy refuses a direct connection (#4333)", () => {
+  it("fails closed rather than bypassing the custom TLS transport for a proxy or relay", async () => {
+    const directFetch = () => { throw new Error("unexpected direct fetch"); };
+    for (const proxy of [
+      { enabled: true, url: "http://127.0.0.1:1", strictProxy: true },
+      { vercelRelayUrl: "http://127.0.0.1:1" },
+    ]) {
+      await expect(proxyAwareFetch("https://api.example.com/v1/chat", { directFetch }, proxy))
+        .rejects.toThrow(/TLS transport.*proxy|TLS transport.*relay/i);
+    }
+  });
   it("throws when a pool is assigned but no proxy url resolved", async () => {
     await expect(
       proxyAwareFetch("https://api.example.com/v1/chat", {}, { proxyPoolId: "p1", strictProxy: true }),

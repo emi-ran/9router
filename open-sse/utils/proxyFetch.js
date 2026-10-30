@@ -320,6 +320,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   // Vercel relay: forward request via relay headers
   const vercelRelayUrl = normalizeString(proxyOptions?.vercelRelayUrl);
   if (vercelRelayUrl) {
+    if (options.directFetch) throw new Error("[ProxyFetch] TLS transport cannot use relay");
     const parsed = new URL(targetUrl);
     const baseHeaders = options.headers instanceof Headers
       ? Object.fromEntries(options.headers.entries())
@@ -335,6 +336,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
   const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
   const proxyUrl = connectionProxyUrl || envProxyUrl;
+  if (options.directFetch && proxyUrl) throw new Error("[ProxyFetch] TLS transport cannot use proxy");
 
   // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
   if (shouldBypassMitmDns(targetUrl)) {

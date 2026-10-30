@@ -82,6 +82,33 @@ describe("OpenCode Free Session ID Format", () => {
     expect(counterOf(generateSessionId(1_700_000_000_000))).toBeLessThanOrEqual(16);
   });
 
+  it("renews an actively used stable session after its absolute TTL", () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const creds = makeCredentials({ connectionId: "stable-absolute-ttl" });
+      const first = stableSessionId(creds);
+      clock.mockReturnValue(now + 60 * 60 * 1000);
+      expect(stableSessionId(creds)).toBe(first);
+      clock.mockReturnValue(now + 2 * 60 * 60 * 1000 + 1);
+      expect(stableSessionId(creds)).not.toBe(first);
+    } finally { clock.mockRestore(); }
+  });
+
+  it("renews an actively used translated session after its absolute TTL", () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const first = translateSessionId("absolute-ttl-regression", "claude");
+      clock.mockReturnValue(now + 60 * 60 * 1000);
+      expect(translateSessionId("absolute-ttl-regression", "claude")).toBe(first);
+      clock.mockReturnValue(now + 2 * 60 * 60 * 1000 + 1);
+      expect(translateSessionId("absolute-ttl-regression", "claude")).not.toBe(first);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("preserves already-valid OpenCode sessions without re-hashing", () => {
     const valid = "ses_f534dfae8ffeCy4Ee4tLWNygDc";
     expect(translateSessionId(valid)).toBe(valid);

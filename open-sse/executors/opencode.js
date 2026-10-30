@@ -94,7 +94,7 @@ export function translateSessionId(sessionId, clientTool = "") {
   }
   const key = `${clientTool || "generic"}\0${sessionId || ""}`;
   const existing = translatedOpencodeSessions.get(key);
-  if (existing) {
+  if (existing && Date.now() - existing.createdAt <= MEMORY_CONFIG.sessionTtlMs) {
     existing.lastUsed = Date.now();
     return existing.sessionId;
   }
@@ -102,7 +102,7 @@ export function translateSessionId(sessionId, clientTool = "") {
   if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
     translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
   }
-  translatedOpencodeSessions.set(key, { sessionId: translated, lastUsed: Date.now() });
+  translatedOpencodeSessions.set(key, { sessionId: translated, createdAt: Date.now(), lastUsed: Date.now() });
   return translated;
 }
 
@@ -157,7 +157,7 @@ function identityKey(credentials) {
 export function stableSessionId(credentials) {
   const key = identityKey(credentials);
   const existing = stableOpencodeSessions.get(key);
-  if (existing) {
+  if (existing && Date.now() - existing.createdAt <= MEMORY_CONFIG.sessionTtlMs) {
     existing.lastUsed = Date.now();
     stableOpencodeSessions.delete(key);
     stableOpencodeSessions.set(key, existing);
@@ -167,7 +167,7 @@ export function stableSessionId(credentials) {
   if (stableOpencodeSessions.size >= MAX_STABLE_SESSIONS) {
     stableOpencodeSessions.delete(stableOpencodeSessions.keys().next().value);
   }
-  stableOpencodeSessions.set(key, { sessionId, lastUsed: Date.now() });
+  stableOpencodeSessions.set(key, { sessionId, createdAt: Date.now(), lastUsed: Date.now() });
   return sessionId;
 }
 
