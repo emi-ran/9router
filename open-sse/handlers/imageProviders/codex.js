@@ -52,7 +52,9 @@ function resolveCodexImageModels(model) {
   if (CODEX_TOOL_IMAGE_MODELS.has(model)) {
     return { responsesModel: CODEX_IMAGES_MAIN_MODEL, toolModel: model };
   }
-  return { responsesModel: stripImageSuffix(model), toolModel: null };
+  const hostModel = stripImageSuffix(model);
+  const legacyHost = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"].includes(hostModel);
+  return { responsesModel: legacyHost ? CODEX_IMAGES_MAIN_MODEL : hostModel, toolModel: null };
 }
 
 function toDataUrl(input) {

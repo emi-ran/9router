@@ -22,6 +22,18 @@ describe("Codex GPT-6 image models", () => {
     expect(getModelType("cx", model)).not.toBe("image");
   });
 
+  it.each(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])("routes legacy %s-image through the current host", async (model) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      'event: response.output_item.done\ndata: {"item":{"type":"image_generation_call","result":"ZmluYWw="}}\n\n',
+      { headers: { "Content-Type": "text/event-stream" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const modelInfo = await getModelInfoCore(`cx/${model}-image`);
+    const result = await handleImageGenerationCore({ modelInfo, body: { prompt: "Draw a square" }, credentials: { accessToken: "test-token" } });
+    expect(result.success).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe("gpt-6-sol");
+  });
+
   it.each(models)("routes %s-image edits and streams image events", async (model) => {
     const events = [
       ["response.image_generation_call.partial_image", { partial_image_b64: "cGFydGlhbA==", partial_image_index: 0 }],

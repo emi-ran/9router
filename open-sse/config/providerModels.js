@@ -97,17 +97,19 @@ export function getModelUpstreamId(aliasOrId, modelId, clientBody = null) {
 
   // Resolve requested thinking level from suffix or client request body
   const rawSuffix = suffix ? suffix.slice(1, -1).trim().toLowerCase() : "";
-  let tier = rawSuffix === "xhigh" || rawSuffix === "max" ? "high" : rawSuffix === "minimal" ? "low" : rawSuffix;
+  const budgetTier = (budget) => {
+    const b = Number(budget);
+    return Number.isFinite(b) && b > 0 ? (b > 16384 ? "high" : b <= 4096 ? "low" : "medium") : "";
+  };
+  let tier = /^\d+$/.test(rawSuffix) ? budgetTier(rawSuffix) : rawSuffix === "xhigh" || rawSuffix === "max" ? "high" : rawSuffix === "minimal" ? "low" : rawSuffix;
   if (!tier && clientBody && typeof clientBody === "object") {
-    const rawEffort = clientBody.reasoning_effort || clientBody.output_config?.effort || (typeof clientBody.reasoning === "object" ? clientBody.reasoning?.effort : null);
+    const nativeThinking = clientBody.generationConfig?.thinkingConfig || clientBody.request?.generationConfig?.thinkingConfig;
+    const rawEffort = clientBody.reasoning_effort || clientBody.output_config?.effort || (typeof clientBody.reasoning === "object" ? clientBody.reasoning?.effort : null) || nativeThinking?.thinkingLevel;
     if (typeof rawEffort === "string" && rawEffort) {
       const v = rawEffort.toLowerCase().trim();
       tier = v === "xhigh" || v === "max" ? "high" : v === "minimal" ? "low" : v;
-    } else if (clientBody.thinking && typeof clientBody.thinking === "object") {
-      const b = Number(clientBody.thinking.budget_tokens);
-      if (Number.isFinite(b) && b > 0) {
-        tier = b > 16384 ? "high" : b <= 4096 ? "low" : "medium";
-      }
+    } else {
+      tier = budgetTier(clientBody.thinking?.budget_tokens ?? nativeThinking?.thinkingBudget);
     }
   }
 
