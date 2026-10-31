@@ -620,9 +620,24 @@ export function parseQuotaData(provider, data) {
 
       case "codex":
         if (data.quotas) {
-          Object.entries(data.quotas).forEach(([quotaType, quota]) => {
+          if (data.quotas.weekly && !data.quotas.session) {
+            normalizedQuotas.push({ name: "5h (assumed; not reported)", quotaType: "session", used: 0, total: 100, remaining: 100, resetAt: null, inferred: true });
+          }
+          const order = (type) => {
+            const group = type.startsWith("review_") ? 1 : type.startsWith("spark_") ? 2 : 0;
+            const window = type.replace(/^(review|spark)_/, "");
+            return group * 10 + (window === "session" ? 0 : window === "weekly" ? 1 : 2);
+          };
+          Object.entries(data.quotas).sort(([a], [b]) => order(a) - order(b)).forEach(([quotaType, quota]) => {
             let displayName = quotaType;
-            if (quotaType === "spark_session") displayName = "Spark (5h)";
+            if (quotaType.endsWith("_unknown")) {
+              const parts = quotaType.split("_");
+              const position = parts[parts.length - 2];
+              const group = parts.length === 3 ? `${parts[0] === "review" ? "Review" : "Spark"} ` : "";
+              displayName = `${group}${position === "primary" ? "Primary" : "Secondary"} (duration unknown)`;
+            }
+            else if (quotaType.endsWith("_primary") || quotaType.endsWith("_secondary")) displayName = quotaType.replace(/_/g, " ");
+            else if (quotaType === "spark_session") displayName = "Spark (5h)";
             else if (quotaType === "spark_weekly") displayName = "Spark (Weekly)";
             else if (quotaType === "session") displayName = "5h";
             else if (quotaType === "weekly") displayName = "Weekly";

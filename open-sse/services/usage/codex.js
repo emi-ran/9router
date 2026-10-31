@@ -58,12 +58,20 @@ function appendCodexQuotaWindows(quotas, prefix, snapshot) {
   const secondary = rateLimit.secondary_window || rateLimit.secondary || snapshot.secondary_window || snapshot.secondary;
   let added = false;
 
-  if (primary) {
-    quotas[prefix ? `${prefix}_session` : "session"] = formatCodexWindow(primary);
-    added = true;
-  }
-  if (secondary) {
-    quotas[prefix ? `${prefix}_weekly` : "weekly"] = formatCodexWindow(secondary);
+  const windows = [[primary, "session", "primary"], [secondary, "weekly", "secondary"]].filter(([window]) => window);
+  // Reserve explicit classifications before attempting legacy positional fallback.
+  const knownType = (window) => window.limit_window_seconds === 18000 ? "session"
+    : window.limit_window_seconds === 604800 ? "weekly" : null;
+  windows.sort(([a], [b]) => Number(!!knownType(b)) - Number(!!knownType(a)));
+  for (const [window, fallback, position] of windows) {
+    const known = knownType(window);
+    let type = known || (window.limit_window_seconds == null ? fallback : `${position}_unknown`);
+    let key = prefix ? `${prefix}_${type}` : type;
+    if (quotas[key]) {
+      type = known ? `${known}_${position}` : `${position}_unknown`;
+      key = prefix ? `${prefix}_${type}` : type;
+    }
+    quotas[key] = formatCodexWindow(window);
     added = true;
   }
 
