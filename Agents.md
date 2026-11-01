@@ -120,8 +120,6 @@ En önemli prensip:
 
 **9Router core'unu mümkün olduğunca bir dependency gibi düşün. Bizim özelliklerimiz `mine` katmanında yaşasın; core'a yalnızca zorunlu ve minimal entegrasyon değişiklikleri yapılsın.**
 
-<!-- BEGIN:nextjs-agent-rules -->
-
 ## Basic fork scope (2026-10-07)
 
 Chat: Antigravity, Codex, OpenCode Free only. Image and Search remain; Web Fetch:
@@ -133,7 +131,9 @@ Responses, Claude and Gemini client translation. Core changes require offline
 regressions and isolated build/UI checks. Integration remains incomplete until
 profile SSO UI and obsolete runtime references/tests are cleared.
 
-# This is NOT the Next.js you know
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
