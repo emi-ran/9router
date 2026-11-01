@@ -250,6 +250,33 @@ function buildCliPackage() {
   // the bundle's node_modules or every importer throws MODULE_NOT_FOUND at runtime. Output
   // tracing normally copies it; this is the same belt-and-braces guard used for sql.js.
   ensureModuleInBundle("open");
+  // wreq-js is loaded by open-sse/services/lazyRuntime.js through a webpackIgnore'd
+  // runtime resolve, so Next output tracing cannot see it. Bundle it and its
+  // platform-specific @wreq-js native binding, otherwise OpenCode TLS requests fail
+  // with "wreq-js unavailable" in the packaged CLI.
+  ensureModuleInBundle("wreq-js");
+  const wreqBindingDest = path.join(cliAppDir, "node_modules", "@wreq-js");
+  const wreqBindingSrc = [
+    path.join(appDir, "node_modules", "@wreq-js"),
+    path.join(rootDir, "node_modules", "@wreq-js"),
+  ].find((p) => fs.existsSync(p));
+  if (wreqBindingSrc) {
+    for (const entry of fs.readdirSync(wreqBindingSrc, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      copyRecursive(path.join(wreqBindingSrc, entry.name), path.join(wreqBindingDest, entry.name));
+    }
+    console.log("✅ Bundled @wreq-js native bindings");
+  } else {
+    console.warn("⚠️  @wreq-js native bindings not found — OpenCode TLS will fail at runtime");
+  }
+  if (!fs.existsSync(path.join(cliAppDir, "node_modules", "wreq-js", "dist", "wreq-js.cjs"))) {
+    console.error("❌ wreq-js missing from the CLI bundle — OpenCode TLS requests would fail with 502");
+    process.exit(1);
+  }
+  if (!fs.existsSync(wreqBindingDest) || fs.readdirSync(wreqBindingDest).length === 0) {
+    console.error("❌ @wreq-js native binding missing from the CLI bundle — OpenCode TLS requests would fail with 502");
+    process.exit(1);
+  }
   const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
   if (fs.existsSync(betterDir)) {
     fs.rmSync(betterDir, { recursive: true, force: true });

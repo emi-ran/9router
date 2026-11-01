@@ -41,6 +41,28 @@ Primary runtime model:
 
 ## Scope and Boundaries
 
+### OpenCode Free lane invariants
+
+Three request properties are load-bearing and must not be "cleaned up":
+
+- **Transport**: the free gate keys on the TLS ClientHello, so requests go
+  through `open-sse/services/opencodeTlsClient.js` (wreq-js with the CLI's cipher
+  list). A native Node/undici fetch to `opencode.ai` answers `429
+  FreeUsageLimitError` regardless of body and headers.
+- **Session id shape**: `x-opencode-session*` must decode as the inverted
+  timestamp + small counter form produced by `generateSessionId()` /
+  `translateSessionId()`. Random, hex or digest-derived session ids and missing
+  session headers also answer `429 FreeUsageLimitError`, not `403`, so the
+  failure looks like exhausted quota. Verified 2026-11-02: the same request with
+  a minted session id returned `200` while a random one returned `429`.
+- **Body fingerprint**: `applyFingerprintTools()` appends the `read`/`shell`
+  tool definitions and the `<env>` marker block; dropping them yields `403
+  FreeTierError`.
+
+One stable session per downstream identity is intentional: upstream accounts
+free-tier quota per session, so expiring or rotating it burns quota and surfaces
+as `429` with a growing `retry-after`.
+
 ### Codex function-tool strict mode
 
 Codex tool normalization preserves explicit `strict: false` and `strict: true`

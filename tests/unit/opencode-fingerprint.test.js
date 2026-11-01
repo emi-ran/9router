@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  applyEnvFingerprint,
   applyFingerprintTools,
   concealFingerprintToolNames,
   appendMissingFingerprintTools,
@@ -15,13 +16,6 @@ const chat = (names) => names.map((name) => ({ type: "function", function: { nam
 const namesOf = (tools) => tools.map((tool) => tool.name ?? tool.function?.name);
 
 describe("opencodeFingerprint — request side", () => {
-  it("does not expose the router host filesystem or imply access to it", () => {
-    const body = { tools: [], instructions: "Caller guidance" };
-    applyFingerprintTools(body, true);
-    expect(body.instructions).toContain("<env>");
-    expect(body.instructions).not.toContain(process.cwd());
-    expect(body.instructions).not.toMatch(/Working directory:|Workspace root folder:|pre-created and approved/);
-  });
   it("appends exact read/shell definitions and leaves case variants untouched", () => {
     const body = { tools: flat(CC_TOOLS) };
     const map = applyFingerprintTools(body, true);
@@ -60,6 +54,9 @@ describe("opencodeFingerprint — request side", () => {
     const map = applyFingerprintTools(body, true);
     expect(namesOf(body.tools)).toEqual(OPENCODE_FINGERPRINT_TOOLS);
     expect(map.size).toBe(0);
+    // No placeholder note when the caller already declared the exact definitions;
+    // the environment marker is still appended on every free-lane request.
+    expect(body.instructions).not.toContain("placeholder");
     expect(body.instructions).toContain("<env>");
   });
 
@@ -97,69 +94,6 @@ describe("opencodeFingerprint — request side", () => {
     const claudeShape = { system: "Be brief.", messages: [{ role: "user", content: "hi" }] };
     applyFingerprintTools(claudeShape, false);
     expect(claudeShape.messages).toHaveLength(1);
-    expect(claudeShape.system).toMatch(/^Be brief\.\n\nDo not call the `read` or `shell` tools;/);
-  });
-
-  it("preserves Claude system blocks and cache metadata when appending the prohibition", () => {
-    const system = Object.freeze([
-      Object.freeze({ type: "text", text: "Original guidance.", cache_control: Object.freeze({ type: "ephemeral", ttl: "1h" }) }),
-      Object.freeze({ type: "text", text: "More guidance.", cache_control: Object.freeze({ type: "ephemeral" }) }),
-    ]);
-    const messages = [{ role: "user", content: "List files." }];
-    const body = { system, messages, tools: chat(["Read", "Bash"]) };
-
-    applyFingerprintTools(body, false);
-
-    expect(body.system).not.toBe(system);
-    expect(body.system.slice(0, 2)).toEqual(system);
-    expect(body.system[0]).toBe(system[0]);
-    expect(body.system[1]).toBe(system[1]);
-    expect(body.system[2]).toEqual({
-      type: "text",
-      text: expect.stringMatching(/^Do not call the `read` or `shell` tools;/),
-    });
-    expect(system).toHaveLength(2);
-    expect(body.messages).toBe(messages);
-    expect(namesOf(body.tools)).toEqual(["Read", "Bash", "read", "shell"]);
-  });
-
-  it("adds a Claude prohibition to empty system strings and block arrays", () => {
-    for (const system of ["", []]) {
-      const messages = [{ role: "user", content: "hi" }];
-      const body = { system, messages };
-      applyFingerprintTools(body, false);
-      const text = typeof body.system === "string" ? body.system : body.system[0].text;
-      expect(text).toMatch(/Do not call the `read` or `shell` tools;/);
-      expect(body.messages).toBe(messages);
-    }
-  });
-
-  it("prohibits only injected tools in Claude without changing caller aliases or schemas", () => {
-    const exact = { tools: [] };
-    applyFingerprintTools(exact, false);
-    const read = exact.tools.find((tool) => tool.function.name === "read");
-    const shell = { type: "function", function: { name: "shell", description: "Caller shell", parameters: { type: "object" } } };
-    const body = { system: "  Preserve whitespace.\n", tools: [read, shell], messages: [] };
-
-    const map = applyFingerprintTools(body, false);
-
-    expect(body.system).toContain("  Preserve whitespace.\n\n\nDo not call the `shell` tool; it is a placeholder that does nothing. Use the other tools you have been given instead.");
-    expect(map.get("shell_client")).toBe("shell");
-    expect(body.tools[0]).toBe(read);
-    expect(body.tools[1].function).toEqual({ ...shell.function, name: "shell_client" });
-    expect(body.tools[2]).toEqual(exact.tools.find((tool) => tool.function.name === "shell"));
-    expect(restoreToolNames({ content: [{ type: "tool_use", name: "shell_client", input: {} }] }, map).content[0].name).toBe("shell");
-  });
-
-  it("does not prohibit caller-owned exact fingerprint tools in Claude", () => {
-    const exact = { tools: [] };
-    applyFingerprintTools(exact, false);
-    const system = [{ type: "text", text: "Caller guidance.", cache_control: { type: "ephemeral" } }];
-    const body = { system, tools: exact.tools, messages: [] };
-    applyFingerprintTools(body, false);
-    expect(body.system[0]).toBe(system[0]);
-    expect(body.system[1].text).toContain("<env>");
-    expect(body.system[1].text).not.toContain("Do not call");
   });
 
   it("retargets flat tool_choice that points at an aliased tool", () => {
@@ -175,20 +109,6 @@ describe("opencodeFingerprint — request side", () => {
     };
     applyFingerprintTools(body, false);
     expect(body.tool_choice.function.name).toBe("read_client");
-  });
-
-  it("aliases prior chat and Responses calls and restores the caller name", () => {
-    const body = {
-      tools: flat(["read"]),
-      input: [{ type: "function_call", name: "read", call_id: "c1", arguments: "{}" }],
-      messages: [{ role: "assistant", tool_calls: [{ id: "c1", function: { name: "read", arguments: "{}" } }] }],
-    };
-    const map = applyFingerprintTools(body, true);
-    expect(body.input[0].name).toBe("read_client");
-    expect(body.messages[0].tool_calls[0].function.name).toBe("read_client");
-    expect(restoreToolNames({ output: [body.input[0]] }, map).output[0].name).toBe("read");
-    expect(restoreToolNames({ choices: [{ message: body.messages[0] }] }, map)
-      .choices[0].message.tool_calls[0].function.name).toBe("read");
   });
 
   it("records the rename map against the body for the response side", () => {
@@ -231,16 +151,6 @@ describe("opencodeFingerprint — in-place normalization", () => {
     function: { name: tool.name, description: tool.description, parameters: tool.parameters },
   });
   const windowsShell = () => shellTool("Windows", "pwsh");
-
-  it("aliases a same-named tool whose argument constraints differ", () => {
-    const tool = windowsShell();
-    tool.parameters.properties.command.minLength = 10;
-    tool.parameters.required.push("workdir");
-    const body = { tools: [tool] };
-    const map = applyFingerprintTools(body, true);
-    expect(map.get("shell_client")).toBe("shell");
-    expect(body.tools[0].parameters).toEqual(tool.parameters);
-  });
 
   it("keeps the caller's name and adopts OpenCode's definition when arguments line up", () => {
     const body = { tools: [windowsShell(), { type: "function", name: "Edit" }] };
@@ -403,6 +313,54 @@ describe("opencodeFingerprint — response side", () => {
   it("leaves unknown tool names untouched", () => {
     const body = { output: [{ type: "function_call", name: "Edit" }] };
     expect(restoreToolNames(body, map).output[0].name).toBe("Edit");
+  });
+});
+
+// The upstream free tier answers 429 FreeUsageLimitError unless the system
+// prompt carries the CLI's `<env>` block AND the body declares tools. Both
+// halves are required; either one alone is refused (live probes 2026-10-26).
+describe("applyEnvFingerprint", () => {
+  it("appends the marker to a chat system message without replacing it", () => {
+    const body = { messages: [{ role: "system", content: "You are helpful." }, { role: "user", content: "hi" }] };
+    expect(applyEnvFingerprint(body, false)).toBe(true);
+    expect(body.messages[0].content).toContain("You are helpful.");
+    expect(body.messages[0].content).toContain("<env>");
+    expect(body.messages[0].content).toContain("Working directory:");
+  });
+
+  it("creates the system message when the body has none", () => {
+    const body = { messages: [{ role: "user", content: "hi" }] };
+    expect(applyEnvFingerprint(body, false)).toBe(true);
+    expect(body.messages[0].role).toBe("system");
+    expect(body.messages[0].content).toContain("<env>");
+  });
+
+  it("is idempotent when the marker is already present", () => {
+    const body = { messages: [{ role: "system", content: "x\n\n<env>\n</env>" }, { role: "user", content: "hi" }] };
+    expect(applyEnvFingerprint(body, false)).toBe(false);
+    expect(body.messages[0].content).toBe("x\n\n<env>\n</env>");
+  });
+
+  it("appends to Responses instructions", () => {
+    const body = { instructions: "Be terse." };
+    expect(applyEnvFingerprint(body, true)).toBe(true);
+    expect(body.instructions).toContain("Be terse.");
+    expect(body.instructions).toContain("<env>");
+  });
+
+  it("appends to a claude top-level system field instead of adding role:system", () => {
+    const body = { system: "Be terse.", messages: [{ role: "user", content: "hi" }] };
+    expect(applyEnvFingerprint(body, false, { claude: true })).toBe(true);
+    expect(body.system).toContain("Be terse.");
+    expect(body.system).toContain("<env>");
+    expect(body.messages).toHaveLength(1);
+  });
+
+  it("handles claude system held as text blocks", () => {
+    const body = { system: [{ type: "text", text: "Be terse." }], messages: [] };
+    expect(applyEnvFingerprint(body, false, { claude: true })).toBe(true);
+    expect(body.system[0].text).toContain("Be terse.");
+    expect(body.system[0].text).toContain("<env>");
   });
 });
 

@@ -94,7 +94,7 @@ export function translateSessionId(sessionId, clientTool = "") {
   }
   const key = `${clientTool || "generic"}\0${sessionId || ""}`;
   const existing = translatedOpencodeSessions.get(key);
-  if (existing && Date.now() - existing.createdAt <= MEMORY_CONFIG.sessionTtlMs) {
+  if (existing) {
     existing.lastUsed = Date.now();
     return existing.sessionId;
   }
@@ -102,7 +102,7 @@ export function translateSessionId(sessionId, clientTool = "") {
   if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
     translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
   }
-  translatedOpencodeSessions.set(key, { sessionId: translated, createdAt: Date.now(), lastUsed: Date.now() });
+  translatedOpencodeSessions.set(key, { sessionId: translated, lastUsed: Date.now() });
   return translated;
 }
 
@@ -157,7 +157,7 @@ function identityKey(credentials) {
 export function stableSessionId(credentials) {
   const key = identityKey(credentials);
   const existing = stableOpencodeSessions.get(key);
-  if (existing && Date.now() - existing.createdAt <= MEMORY_CONFIG.sessionTtlMs) {
+  if (existing) {
     existing.lastUsed = Date.now();
     stableOpencodeSessions.delete(key);
     stableOpencodeSessions.set(key, existing);
@@ -167,7 +167,7 @@ export function stableSessionId(credentials) {
   if (stableOpencodeSessions.size >= MAX_STABLE_SESSIONS) {
     stableOpencodeSessions.delete(stableOpencodeSessions.keys().next().value);
   }
-  stableOpencodeSessions.set(key, { sessionId, createdAt: Date.now(), lastUsed: Date.now() });
+  stableOpencodeSessions.set(key, { sessionId, lastUsed: Date.now() });
   return sessionId;
 }
 
@@ -337,6 +337,16 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
+// Chat Completions lane: the free backend validates reasoning_effort against the
+// plain OpenAI enum (none|minimal|low|medium|high|xhigh|max) and answers 400
+// "Invalid option" for anything else — including "auto", which adaptive thinking
+// (Claude Code's thinking:{type:"adaptive"}) arrives as. Omitting the field lets
+// the upstream pick its own default, which is what adaptive means; same rationale
+// as the Responses path above, which rejects "unknown variant `auto`".
+function dropAdaptiveReasoningEffort(body) {
+  if (body?.reasoning_effort === "auto") delete body.reasoning_effort;
+}
+
 export class OpenCodeExecutor extends BaseExecutor {
   constructor() {
     super("opencode", PROVIDERS.opencode);
@@ -386,7 +396,7 @@ export class OpenCodeExecutor extends BaseExecutor {
       // non-empty tool arrays; skipping cloaking here triggers 403 FreeTierError.
       applyFingerprintTools(body, true);
     } else if (body && typeof body === "object") {
-      if (body.reasoning_effort === "auto") delete body.reasoning_effort;
+      dropAdaptiveReasoningEffort(body);
       applyFingerprintTools(body, false, { claude: isMessagesModel(model || body?.model) });
     }
     return injectReasoningContent({ provider: this.provider, model, body });
@@ -394,7 +404,10 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   // The free gate keys on the TLS ClientHello, so a native Node fetch is refused
   // no matter how faithful the body is. Route through the impersonating client
-  // and keep proxy handling on the existing path. Missing TLS runtime fails closed.
+  // and keep proxy handling on the existing path (proxyAwareFetch delegates to
+  // `directFetch` with the resolved proxy so the impersonating client tunnels
+  // through it too. Fail-open: without wreq-js the request still goes out on
+  // native fetch instead of erroring here.
   async execute(args) {
     const credentials = this.prepareRequestCredentials(args);
     return super.execute({

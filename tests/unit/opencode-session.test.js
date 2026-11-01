@@ -82,31 +82,25 @@ describe("OpenCode Free Session ID Format", () => {
     expect(counterOf(generateSessionId(1_700_000_000_000))).toBeLessThanOrEqual(16);
   });
 
-  it("renews an actively used stable session after its absolute TTL", () => {
+  // Free-tier quota is accounted per session, so an identity must keep one
+  // session for as long as it is used — an absolute TTL would burn quota.
+  it("keeps one stable session per identity no matter how long it is used", () => {
     const now = Date.now();
     const clock = vi.spyOn(Date, "now").mockReturnValue(now);
     try {
-      const creds = makeCredentials({ connectionId: "stable-absolute-ttl" });
+      const creds = makeCredentials({ connectionId: "stable-no-ttl" });
       const first = stableSessionId(creds);
-      clock.mockReturnValue(now + 60 * 60 * 1000);
+      clock.mockReturnValue(now + 6 * 60 * 60 * 1000);
       expect(stableSessionId(creds)).toBe(first);
-      clock.mockReturnValue(now + 2 * 60 * 60 * 1000 + 1);
-      expect(stableSessionId(creds)).not.toBe(first);
     } finally { clock.mockRestore(); }
   });
 
-  it("renews an actively used translated session after its absolute TTL", () => {
-    const now = Date.now();
-    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
-    try {
-      const first = translateSessionId("absolute-ttl-regression", "claude");
-      clock.mockReturnValue(now + 60 * 60 * 1000);
-      expect(translateSessionId("absolute-ttl-regression", "claude")).toBe(first);
-      clock.mockReturnValue(now + 2 * 60 * 60 * 1000 + 1);
-      expect(translateSessionId("absolute-ttl-regression", "claude")).not.toBe(first);
-    } finally {
-      clock.mockRestore();
-    }
+  it("reuses the memoized session for one conversation", () => {
+    const raw = "claude:memoized-conversation";
+    const first = translateSessionId(raw, "claude");
+    expect(translateSessionId(raw, "claude")).toBe(first);
+    // A different conversation still gets its own session.
+    expect(translateSessionId(`${raw}-other`, "claude")).not.toBe(first);
   });
 
   it("preserves already-valid OpenCode sessions without re-hashing", () => {
