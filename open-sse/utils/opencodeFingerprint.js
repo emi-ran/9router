@@ -18,6 +18,9 @@
  * Transport is a third gate and lives in services/opencodeTlsClient.js.
  */
 
+import os from "node:os";
+import path from "node:path";
+
 /** Names required by the upstream free-tier gate. */
 export const OPENCODE_FINGERPRINT_TOOLS = ["read", "shell"];
 
@@ -288,12 +291,12 @@ function noteUnavailableTools(body, flat, names, claude = false) {
 
 // The marker gate reads text only: a foreign system prompt plus this exact block
 // passes, so the marker is appended to the caller's own prompt rather than
-// replacing it. Values mirror a real CLI instance, but stay generic on purpose:
-// the router host's real user name and checkout path must not leak upstream.
+// replacing it. Values mirror a real CLI instance on this host, matching
+// upstream: a dir the client can actually open, not a path that does not exist.
 const ENV_TAG = "<env>";
 const ENV_HEADING = "Here is some useful information about the environment you are running in:";
-const ENV_WORKING_DIR = process.platform === "win32" ? "C:\\workspace" : "/workspace";
-const ENV_TMP_DIR = process.platform === "win32" ? "C:\\Windows\\Temp\\opencode" : "/tmp/opencode";
+const ENV_TMP_DIR = path.join(os.tmpdir(), "opencode");
+const ENV_WORKING_DIR = process.cwd();
 const ENV_FINGERPRINT_PROMPT = [
   ENV_HEADING,
   ENV_TAG,

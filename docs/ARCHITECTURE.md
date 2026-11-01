@@ -57,7 +57,10 @@ Three request properties are load-bearing and must not be "cleaned up":
   a minted session id returned `200` while a random one returned `429`.
 - **Body fingerprint**: `applyFingerprintTools()` appends the `read`/`shell`
   tool definitions and the `<env>` marker block; dropping them yields `403
-  FreeTierError`.
+  FreeTierError`. The marker's working directory and temp dir are the live
+  `process.cwd()` and `os.tmpdir()/opencode`, matching upstream: they must name
+  directories that actually exist for the client profile to stay credible,
+  so do not replace them with invented placeholder paths.
 
 One stable session per downstream identity is intentional: upstream accounts
 free-tier quota per session, so expiring or rotating it burns quota and surfaces
