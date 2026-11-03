@@ -57,10 +57,16 @@ Three request properties are load-bearing and must not be "cleaned up":
   a minted session id returned `200` while a random one returned `429`.
 - **Body fingerprint**: `applyFingerprintTools()` appends the `read`/`shell`
   tool definitions and the `<env>` marker block; dropping them yields `403
-  FreeTierError`. The marker's working directory and temp dir are the live
-  `process.cwd()` and `os.tmpdir()/opencode`, matching upstream: they must name
-  directories that actually exist for the client profile to stay credible,
-  so do not replace them with invented placeholder paths.
+  FreeTierError`. The marker's working directory and temp dir must name real
+  directories for the client profile to stay credible, so do not replace them
+  with invented placeholder paths. The working directory is the launch
+  directory (`NINEROUTER_CLIENT_CWD`, set by `cli/cli.js` and
+  `custom-server.js`), falling back to the home directory when the launch path
+  is the package install path or gone: upstream answers `429
+  FreeUsageLimitError`, not `403`, when the reported directory is the
+  `<npm prefix>/node_modules/9router/app` install path. Verified 2026-11-04:
+  the same packaged build returned `429` reporting that path and `200` reporting
+  any user directory.
 
 One stable session per downstream identity is intentional: upstream accounts
 free-tier quota per session, so expiring or rotating it burns quota and surfaces

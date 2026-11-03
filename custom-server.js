@@ -13,6 +13,14 @@ const origCreate = http.createServer.bind(http);
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
 process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
 
+// The OpenCode free lane reports a working directory in its <env> fingerprint and
+// the upstream gate answers 429 FreeUsageLimitError when that directory is the
+// package install path itself (measured 2026-11-04: the same build sending
+// %APPDATA%\npm\node_modules\9router\app got 429, every user directory got 200).
+// Record the directory the server was started from before server.js chdirs into
+// the standalone app directory, so the fingerprint can name the caller's project.
+if (!process.env.NINEROUTER_CLIENT_CWD) process.env.NINEROUTER_CLIENT_CWD = process.cwd();
+
 let backgroundRefreshStarted = false;
 
 function startBackgroundTokenRefreshFromCustomServer() {

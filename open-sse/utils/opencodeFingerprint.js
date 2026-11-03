@@ -18,6 +18,7 @@
  * Transport is a third gate and lives in services/opencodeTlsClient.js.
  */
 
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -296,7 +297,34 @@ function noteUnavailableTools(body, flat, names, claude = false) {
 const ENV_TAG = "<env>";
 const ENV_HEADING = "Here is some useful information about the environment you are running in:";
 const ENV_TMP_DIR = path.join(os.tmpdir(), "opencode");
-const ENV_WORKING_DIR = process.cwd();
+
+/**
+ * The `<env>` block must name a directory a real client could work in. A
+ * packaged install starts the server inside the package directory
+ * (`<npm prefix>/node_modules/9router/app`), and upstream answers such a profile
+ * with 429 FreeUsageLimitError even though the same build passes from any user
+ * directory (measured 2026-11-04). Report the directory the launcher was started
+ * from instead, and fall back to the home directory when that is itself an
+ * install path or no longer exists.
+ */
+function resolveWorkingDir() {
+  const launchedFrom = String(process.env.NINEROUTER_CLIENT_CWD || "").trim();
+  const candidate = launchedFrom || process.cwd();
+  const unusable = !path.isAbsolute(candidate)
+    || /[\\/]node_modules[\\/]/i.test(candidate)
+    || !isDirectory(candidate);
+  return unusable ? os.homedir() : candidate;
+}
+
+function isDirectory(target) {
+  try {
+    return fs.statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+const ENV_WORKING_DIR = resolveWorkingDir();
 const ENV_FINGERPRINT_PROMPT = [
   ENV_HEADING,
   ENV_TAG,

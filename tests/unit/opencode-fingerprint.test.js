@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import os from "node:os";
+import path from "node:path";
 import {
   applyEnvFingerprint,
   applyFingerprintTools,
@@ -372,5 +374,51 @@ describe("fingerprintToolKey", () => {
     expect(fingerprintToolKey("bash")).toBe("");
     expect(fingerprintToolKey("terminal")).toBe("");
     expect(fingerprintToolKey(null)).toBe("");
+  });
+});
+
+describe("opencodeFingerprint — env working directory", () => {
+  const loadPrompt = async (clientCwd) => {
+    vi.resetModules();
+    const before = process.env.NINEROUTER_CLIENT_CWD;
+    if (clientCwd === undefined) delete process.env.NINEROUTER_CLIENT_CWD;
+    else process.env.NINEROUTER_CLIENT_CWD = clientCwd;
+    try {
+      const mod = await import("open-sse/utils/opencodeFingerprint.js");
+      const body = {};
+      mod.applyEnvFingerprint(body, false, { claude: true });
+      const system = body.system;
+      return Array.isArray(system)
+        ? system.map((block) => (typeof block?.text === "string" ? block.text : "")).join("\n")
+        : String(system ?? "");
+    } finally {
+      if (before === undefined) delete process.env.NINEROUTER_CLIENT_CWD;
+      else process.env.NINEROUTER_CLIENT_CWD = before;
+    }
+  };
+
+  it("reports the launch directory the packaged CLI passes in", async () => {
+    const launchDir = os.tmpdir();
+    const prompt = await loadPrompt(launchDir);
+    expect(prompt).toContain(`Working directory: ${launchDir}`);
+    expect(prompt).toContain(`Workspace root folder: ${launchDir}`);
+  });
+
+  it("falls back to the home directory when the launch path is the package install path", async () => {
+    const installDir = path.join(os.homedir(), "AppData", "Roaming", "npm", "node_modules", "9router", "app");
+    const prompt = await loadPrompt(installDir);
+    expect(prompt).not.toContain(installDir);
+    expect(prompt).toContain(`Working directory: ${os.homedir()}`);
+  });
+
+  it("falls back to the home directory when the launch path is gone", async () => {
+    const missing = path.join(os.homedir(), "definitely-missing-9router-dir");
+    const prompt = await loadPrompt(missing);
+    expect(prompt).toContain(`Working directory: ${os.homedir()}`);
+  });
+
+  it("uses the process directory when no launch directory is provided", async () => {
+    const prompt = await loadPrompt(undefined);
+    expect(prompt).toContain(`Working directory: ${process.cwd()}`);
   });
 });
