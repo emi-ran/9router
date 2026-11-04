@@ -1,5 +1,8 @@
 # Unreleased
 
+## Fixes
+- **Routing**: stop reporting a misleading "All combo models unavailable" for a single model the capacity adapter filters out (a bare or unknown model id). Such a request now resolves as one model and fails with `400 Invalid model format`, so the client sees the real cause instead of a phantom combo failure.
+
 ## Dashboard
 - **Quota Tracker**: improve provider and account filtering controls, including explicit empty and available quota filters, compact provider/account selectors, auto-refresh toggle, refresh action, and saved card ordering.
 - **Quota Tracker**: keep toolbar controls from collapsing into the section title on narrow layouts; use separate title and control rows with stable control sizing and horizontal overflow where needed.
