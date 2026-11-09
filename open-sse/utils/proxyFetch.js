@@ -1,9 +1,12 @@
 import { Readable } from "stream";
-import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { MEMORY_CONFIG, resolveKeepAliveTimeouts } from "../config/runtimeConfig.js";
 import { dbg } from "./debugLog.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
+let directDispatcher;
+let directTimeout;
+let directDispatcherPending;
 
 // ─── TLS fingerprinting via got-scraping (browser-like JA3) ───────────────
 // Disabled: not in use. Kept commented for future re-enable.
@@ -248,11 +251,33 @@ async function getDispatcher(proxyUrl) {
   return proxyDispatchers.get(key);
 }
 
+// Share a capped pool for normal direct requests. Keep the existing native fetch,
+// proxy TLS behavior and custom protocol transports unchanged.
+async function getDirectDispatcher() {
+  const timeouts = resolveKeepAliveTimeouts();
+  if (directDispatcher && directTimeout === timeouts.keepAliveTimeout) return directDispatcher;
+  // Serialize lazy initialization so concurrent requests share one pool.
+  if (directDispatcherPending) {
+    await directDispatcherPending;
+    return getDirectDispatcher();
+  }
+  directDispatcherPending = (async () => {
+    const { Agent } = await import("undici");
+    const previous = directDispatcher;
+    directDispatcher = new Agent(timeouts);
+    directTimeout = timeouts.keepAliveTimeout;
+    // Drain any in-flight requests on an old pool after a configuration change.
+    if (previous) void previous.close().catch(() => {});
+  })();
+  try { await directDispatcherPending; } finally { directDispatcherPending = null; }
+  return directDispatcher;
+}
+
 async function fetchWithDispatcher(url, options, proxyUrl) {
   // Keep Node's fetch/decoder; npm undici supplies only the proxy transport.
   // Certificate failures propagate: never downgrade TLS or replay credentials.
-  const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : undefined;
-  return originalFetch(url, dispatcher ? { ...options, dispatcher } : options);
+  const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : await getDirectDispatcher();
+  return originalFetch(url, { ...options, dispatcher });
 }
 
 /**
