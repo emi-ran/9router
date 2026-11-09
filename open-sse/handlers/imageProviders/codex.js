@@ -60,9 +60,7 @@ function resolveCodexImageModels(model) {
   if (CODEX_TOOL_IMAGE_MODELS.has(model)) {
     return { responsesModel: CODEX_IMAGES_MAIN_MODEL, toolModel: model };
   }
-  const hostModel = stripImageSuffix(model);
-  const legacyHost = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"].includes(hostModel);
-  return { responsesModel: legacyHost ? CODEX_IMAGES_MAIN_MODEL : hostModel, toolModel: null };
+  return { responsesModel: stripImageSuffix(model), toolModel: null };
 }
 
 function hasImageRefs(body) {

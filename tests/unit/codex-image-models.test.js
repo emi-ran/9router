@@ -22,7 +22,7 @@ describe("Codex GPT-6 image models", () => {
     expect(getModelType("cx", model)).not.toBe("image");
   });
 
-  it.each(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])("routes legacy %s-image through the current host", async (model) => {
+  it.each(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])("routes legacy %s-image through its matching host", async (model) => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(
       'event: response.output_item.done\ndata: {"item":{"type":"image_generation_call","result":"ZmluYWw="}}\n\n',
       { headers: { "Content-Type": "text/event-stream" } },
@@ -31,7 +31,7 @@ describe("Codex GPT-6 image models", () => {
     const modelInfo = await getModelInfoCore(`cx/${model}-image`);
     const result = await handleImageGenerationCore({ modelInfo, body: { prompt: "Draw a square" }, credentials: { accessToken: "test-token" } });
     expect(result.success).toBe(true);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe("gpt-6-sol");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe(model);
   });
 
   it.each(models)("routes %s-image edits and streams image events", async (model) => {
