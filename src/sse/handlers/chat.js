@@ -147,8 +147,11 @@ async function handleChatRequest(request, clientRawRequest = null) {
 
   // Single model request — may still switch to a capacity-adapter model if the
   // target lacks a capability the request needs (e.g. no vision, request has an image).
+  // The adapter only keeps `provider/model` names, so a bare or unknown id can
+  // come back as an empty list. Dispatching that as a combo hid the real cause
+  // behind "All combo models unavailable"; let single-model resolution reject it.
   const soloAugmented = augmentModelsWithCapacityAdapter([modelStr], requiredCapabilities, settings);
-  if (soloAugmented.length > 1 || soloAugmented[0] !== modelStr) {
+  if (soloAugmented.length > 0 && (soloAugmented.length > 1 || soloAugmented[0] !== modelStr)) {
     const adapterAdded = soloAugmented.filter((m) => m !== modelStr);
     log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → trying ${soloAugmented.join(", ")}`);
     return handleComboChat({

@@ -570,7 +570,11 @@ function startServer(updatePromise) {
       env: {
         ...buildEnvWithRuntime(process.env),
         PORT: port.toString(),
-        HOSTNAME: host
+        HOSTNAME: host,
+        // Launch directory, not the standalone app dir: the OpenCode free-lane
+        // fingerprint reports it as the client's working directory and the
+        // package install path is refused with 429 (see open-sse/utils/opencodeFingerprint.js).
+        NINEROUTER_CLIENT_CWD: process.cwd()
       }
     });
     if (!showLog && child.stderr) {
