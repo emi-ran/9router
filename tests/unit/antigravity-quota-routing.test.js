@@ -18,10 +18,6 @@ vi.mock("@/lib/network/connectionProxy", () => ({
   resolveConnectionProxyConfig: mocks.resolveConnectionProxyConfig,
   pickProxyPoolId: vi.fn(),
 }));
-vi.mock("@/shared/constants/providers.js", () => ({
-  FREE_PROVIDERS: {},
-  resolveProviderId: (provider) => provider,
-}));
 vi.mock("open-sse/services/usage/google.js", () => ({
   getAntigravityUsage: mocks.getAntigravityUsage,
 }));
