@@ -328,6 +328,10 @@ export default {
     };
   },
   buildBody: (model, body) => {
+    // Both Codex transports return one image; never silently discard a requested count.
+    if (body.n != null && body.n !== 1) {
+      throw new Error("Codex image generation only supports n=1.");
+    }
     if (shouldUseNativeGeneration(model, body)) return buildNativeGenerationBody(model, body);
 
     const refs = [];
@@ -341,6 +345,7 @@ export default {
       imgTool.action = refs.length > 0 ? "edit" : "generate";
       imgTool.model = toolModel;
     }
+    if (body.output_compression != null) imgTool.output_compression = body.output_compression;
     if (body.size && body.size !== "") imgTool.size = body.size;
     if (body.quality && body.quality !== "") imgTool.quality = body.quality;
     // The ChatGPT Codex backend currently rejects every explicit complexity level.

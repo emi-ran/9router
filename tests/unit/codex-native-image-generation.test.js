@@ -112,7 +112,6 @@ describe("native Codex OAuth image generation", () => {
 
 describe("legacy Codex image Responses compatibility", () => {
   it.each([
-    { n: 2 },
     { size: "1024x1024" },
     { output_format: "webp" },
     { output_format: "jpeg" },
@@ -130,6 +129,36 @@ describe("legacy Codex image Responses compatibility", () => {
     expect(result.success).toBe(true);
     expect(fetchMock.mock.calls[0][0]).toBe("https://chatgpt.com/backend-api/codex/responses");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toHaveProperty("tools");
+  });
+
+  it.each([
+    { model: "gpt-image-2.5", extra: {} },
+    { model: "gpt-image-2.5", extra: { image: "data:image/png;base64,cmVm" } },
+    { model: "gpt-6-sol-image", extra: {} },
+  ])("rejects unsupported image counts before sending upstream: %o", async ({ model, extra }) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({
+      modelInfo: { provider: "codex", model },
+      body: { prompt: "cat", n: 2, ...extra },
+    }));
+    expect(result.success).toBe(false);
+    expect(result.response.status).toBe(400);
+    expect(await result.response.text()).toContain("n");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["gpt-image-2.5", "gpt-6-sol-image"])("forwards output compression on Responses for %s", async (model) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      sse("response.output_item.done", { item: { type: "image_generation_call", result: "aW1hZ2U=" } }),
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({
+      modelInfo: { provider: "codex", model },
+      body: { prompt: "cat", output_format: "webp", output_compression: 80 },
+    }));
+    expect(result.success).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({ output_compression: 80 });
   });
 
   it.each([
