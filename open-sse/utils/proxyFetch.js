@@ -276,7 +276,7 @@ async function getDirectDispatcher() {
 async function fetchWithDispatcher(url, options, proxyUrl) {
   // Keep Node's fetch/decoder; npm undici supplies only the proxy transport.
   // Certificate failures propagate: never downgrade TLS or replay credentials.
-  const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : await getDirectDispatcher();
+  const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : (options.dispatcher ?? await getDirectDispatcher());
   return originalFetch(url, { ...options, dispatcher });
 }
 
