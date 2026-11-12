@@ -49,7 +49,8 @@ describe("native Codex OAuth image generation", () => {
     expect(upstream).toMatchObject({ model, prompt: "A cute cat wearing a hat", output_format: "png" });
     expect(upstream).not.toHaveProperty("tools");
     expect(upstream).not.toHaveProperty("reasoning");
-    expect(onUsage).toHaveBeenCalledExactlyOnceWith({ prompt_tokens: 15, completion_tokens: 515, total_tokens: 530 });
+    expect(onUsage).toHaveBeenCalledTimes(1);
+    expect(onUsage).toHaveBeenCalledWith({ prompt_tokens: 15, completion_tokens: 515, total_tokens: 530 });
     expect(onRequestSuccess).toHaveBeenCalledTimes(1);
   });
 
@@ -87,7 +88,8 @@ describe("native Codex OAuth image generation", () => {
     expect(url).toBe("https://chatgpt.com/backend-api/codex/images/generations");
     expect(options.headers.authorization).toBe("Bearer refreshed-oauth-token");
     expect(JSON.parse(options.body).model).toBe("gpt-image-2.5");
-    expect(onCredentialsRefreshed).toHaveBeenCalledExactlyOnceWith({ accessToken: "refreshed-oauth-token" });
+    expect(onCredentialsRefreshed).toHaveBeenCalledTimes(1);
+    expect(onCredentialsRefreshed).toHaveBeenCalledWith({ accessToken: "refreshed-oauth-token" });
   });
 
   it("rejects missing native image output without inventing an entitlement error or usage", async () => {
@@ -111,6 +113,13 @@ describe("native Codex OAuth image generation", () => {
 });
 
 describe("legacy Codex image Responses compatibility", () => {
+  it("preserves explicit image detail on reference edits", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(sse("response.output_item.done", { item: { type: "image_generation_call", result: "aW1hZ2U=" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    await handleImageGenerationCore(request({ body: { prompt: "edit", image: "data:image/png;base64,cmVm", image_detail: "low" } }));
+    expect(fetchMock.mock.calls[0][0]).toContain("/responses");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input[0].content).toContainEqual({ type: "input_image", image_url: "data:image/png;base64,cmVm", detail: "low" });
+  });
   it.each([
     { size: "1024x1024" },
     { output_format: "webp" },
@@ -161,16 +170,48 @@ describe("legacy Codex image Responses compatibility", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({ output_compression: 80 });
   });
 
+  it.each([...imageModels, "gpt-image-2.6-flare", "gpt-image-2.6-sunburst"])("sends %s reference-image edits to the native Images edits endpoint", async (model) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({
+      modelInfo: { provider: "codex", model },
+      body: { prompt: "Edit this image", images: ["data:image/png;base64,cmVm", "Zm9v"], size: "auto" },
+    }));
+    expect(result.success).toBe(true);
+    expect(await result.response.json()).toEqual(image);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://chatgpt.com/backend-api/codex/images/edits");
+    expect(options.headers.accept).toBe("application/json");
+    expect(JSON.parse(options.body)).toEqual({
+      model,
+      prompt: "Edit this image",
+      images: [{ image_url: "data:image/png;base64,cmVm" }, { image_url: "data:image/png;base64,Zm9v" }],
+      n: 1,
+      size: "auto",
+      quality: "auto",
+      background: "auto",
+    });
+  });
+
+  it("sends a single image reference to the native edits endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({ body: { prompt: "Edit this image", image: "data:image/png;base64,cmVm" } }));
+    expect(result.success).toBe(true);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://chatgpt.com/backend-api/codex/images/edits");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).images).toEqual([{ image_url: "data:image/png;base64,cmVm" }]);
+  });
+
   it.each([
-    { image: "data:image/png;base64,cmVm" },
-    { images: ["data:image/png;base64,cmVm"] },
-  ])("keeps reference-image requests on Responses", async (references) => {
+    { size: "1024x1024" },
+    { output_format: "webp" },
+  ])("keeps reference-image requests outside the native output scope on Responses: %o", async (controls) => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(
       sse("response.output_item.done", { item: { type: "image_generation_call", result: "aW1hZ2U=" } }),
       { headers: { "content-type": "text/event-stream" } },
     ));
     vi.stubGlobal("fetch", fetchMock);
-    const result = await handleImageGenerationCore(request({ body: { prompt: "Edit this image", ...references } }));
+    const result = await handleImageGenerationCore(request({ body: { prompt: "Edit this image", image: "data:image/png;base64,cmVm", ...controls } }));
     expect(result.success).toBe(true);
     expect(fetchMock.mock.calls[0][0]).toBe("https://chatgpt.com/backend-api/codex/responses");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).input[0].content).toContainEqual({ type: "input_image", image_url: "data:image/png;base64,cmVm", detail: "high" });
@@ -187,7 +228,7 @@ describe("legacy Codex image Responses compatibility", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(upstream, { headers: { "content-type": "text/event-stream" } })));
     const onRequestSuccess = vi.fn();
     const result = await handleImageGenerationCore(request({
-      body: { prompt: "Edit this image", image: "data:image/png;base64,cmVm" },
+      body: { prompt: "Edit this image", image: "data:image/png;base64,cmVm", size: "1024x1024" },
       streamToClient: true,
       onRequestSuccess,
     }));
@@ -205,5 +246,42 @@ describe("legacy Codex image Responses compatibility", () => {
     const result = await handleImageGenerationCore(request({ modelInfo: { provider: "codex", model: "gpt-6-sol-image" } }));
     expect(result.success).toBe(true);
     expect((await result.response.json()).data).toEqual(image.data);
+  });
+
+  const hostRejected = () => Response.json({
+    detail: "The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account.",
+    error: { type: "invalid_request_error", code: "model_not_found" },
+  }, { status: 400 });
+  const imageStream = () => new Response(
+    sse("response.output_item.done", { item: { type: "image_generation_call", result: "aW1hZ2U=" } }),
+    { headers: { "content-type": "text/event-stream" } },
+  );
+
+  it("retries once on the fallback host model when the account rejects gpt-6-sol", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(hostRejected()).mockResolvedValueOnce(imageStream());
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({ body: { prompt: "cat", size: "1024x1024" } }));
+    expect(result.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [first, second] = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(first.model).toBe("gpt-6-sol");
+    expect(second.model).toBe("gpt-5.6-terra");
+    expect(second.tools[0].model).toBe("gpt-image-2.5");
+  });
+
+  it("does not swap the host of a *-image model requested by name", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(hostRejected());
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({ modelInfo: { provider: "codex", model: "gpt-6-sol-image" } }));
+    expect(result.success).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry other upstream 400s", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ detail: "Invalid size." }, { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await handleImageGenerationCore(request({ body: { prompt: "cat", size: "1024x1024" } }));
+    expect(result.success).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

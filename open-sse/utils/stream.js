@@ -96,6 +96,7 @@ export function createSSEStream(options = {}) {
   let openAIResponsesTerminalSeen = false;
   let openAIResponsesDoneSent = false;
   let streamDoneSent = false;  // track duplicate [DONE] across transform + flush
+  let pendingDoneTerminator = false;
   let finalized = false;
   let completionFlushTimer = null;
 
@@ -178,6 +179,13 @@ export function createSSEStream(options = {}) {
           let output;
           let injectedUsage = false;
           let responsesTerminal = false;
+
+          // Upstream already sent the sentinel; flush() must not append a second one.
+          if (pendingDoneTerminator && trimmed === "") pendingDoneTerminator = false;
+          if (trimmed.startsWith("data:") && trimmed.slice(5).trim() === "[DONE]") {
+            streamDoneSent = true;
+            pendingDoneTerminator = true;
+          }
 
           if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
             try {
@@ -477,13 +485,26 @@ export function createSSEStream(options = {}) {
         if (remaining) buffer += remaining;
 
         if (mode === STREAM_MODE.PASSTHROUGH) {
-          if (buffer) {
+          // Preserve an upstream sentinel even for Gemini-family providers, which
+          // do not receive a synthesized sentinel. Complete its SSE framing here.
+          const tail = buffer.trim();
+          const tailIsDone = tail.startsWith("data:") && tail.slice(5).trim() === "[DONE]";
+          if (tailIsDone) {
+            const doneOutput = "data: [DONE]\n\n";
+            reqLogger?.appendConvertedChunk?.(doneOutput);
+            controller.enqueue(sharedEncoder.encode(doneOutput));
+            streamDoneSent = true;
+          } else if (buffer) {
             let output = buffer;
             if (buffer.startsWith("data:") && !buffer.startsWith("data: ")) {
               output = "data: " + buffer.slice(5);
             }
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
+          }
+
+          if (pendingDoneTerminator) {
+            controller.enqueue(sharedEncoder.encode("\n"));
           }
 
           // IMPORTANT: In passthrough mode we still must terminate the SSE stream.
@@ -493,7 +514,9 @@ export function createSSEStream(options = {}) {
           // Gemini-family clients (Antigravity, Vertex, Gemini) reject this sentinel with 400 syntax errors.
           const isGeminiFamily = provider === "antigravity" || provider === "gemini" || provider === "vertex";
           if (!streamDoneSent && !isGeminiFamily) {
-            const doneOutput = "data: [DONE]\n\n";
+            // An unterminated trailing line belongs to the previous event, not
+            // to the sentinel; end both the line and the event first.
+            const doneOutput = (buffer ? "\n\n" : "") + "data: [DONE]\n\n";
             reqLogger?.appendConvertedChunk?.(doneOutput);
             controller.enqueue(sharedEncoder.encode(doneOutput));
           }

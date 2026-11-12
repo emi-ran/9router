@@ -4,6 +4,7 @@ import { getProviderConnections, getCombos, getCustomModels, getModelAliases } f
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { codexTranscriptionModels } from "@/mine/stt/catalog.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
 const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
 const aliasToId = { ...Object.fromEntries(Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])), ...ALIAS_TO_ID };
@@ -29,6 +30,10 @@ export async function buildModelsList(kindFilter) {
       entry.capabilities = { ...getCapabilitiesForModel(owner, id), ...overrides };
       if (Number.isFinite(entry.capabilities?.contextWindow)) entry.context_length = entry.capabilities.contextWindow;
       if (Number.isFinite(entry.capabilities?.maxOutput)) entry.max_completion_tokens = entry.capabilities.maxOutput;
+      if (kind === "llm" && entry.capabilities.reasoning !== false) {
+        const levels = getThinkingLevels(owner, id);
+        if (levels?.length) entry.thinking_levels = levels;
+      }
     }
     if (kind === "webSearch" || kind === "webFetch") entry.kind = kind;
     entries.set(entry.id, entry);
