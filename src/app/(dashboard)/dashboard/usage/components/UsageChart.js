@@ -121,6 +121,7 @@ export default function UsageChart({ period = "7d" }) {
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
+              itemStyle={{ color: "var(--color-text-main)" }}
               formatter={(value) => [cfg.formatter(value), cfg.label]}
             />
             <Area

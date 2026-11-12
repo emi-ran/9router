@@ -95,6 +95,7 @@ export default function TopModelsChart({ byModel }) {
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
+              itemStyle={{ color: "var(--color-text-main)" }}
               formatter={(value) => [fmt(value), label]}
             />
             <Bar dataKey={viewMode} radius={[0, 4, 4, 0]}>
