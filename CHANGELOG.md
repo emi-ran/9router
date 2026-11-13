@@ -1,6 +1,7 @@
 # Unreleased
 
 ## Fixes
+- **Dashboard icons**: reduce the self-hosted Material Symbols font size while retaining all icons and filled variants; keep icon names hidden until the font loads successfully.
 - **Routing**: stop reporting a misleading "All combo models unavailable" for a single model the capacity adapter filters out (a bare or unknown model id). Such a request now resolves as one model and fails with `400 Invalid model format`, so the client sees the real cause instead of a phantom combo failure.
 
 ## Dashboard

@@ -32,6 +32,14 @@ Keep npm lockfiles and project documentation in Git. Dependency directories,
 local Next.js build outputs and Playwright capture logs are ignored; `.env`
 files remain private, with `.env.example` available as a tracked template.
 
+Dashboard Material Symbols are self-hosted at `public/fonts/material-symbols-outlined-basic-v1.woff2`.
+The font is derived from the installed `material-symbols` package (Apache-2.0;
+license alongside the asset), retaining all glyphs and the `FILL` axis while
+fixing `GRAD=0`, `opsz=24`, and `wght=400`. When updating that package,
+regenerate the asset with `python -m fontTools.varLib.instancer node_modules/material-symbols/material-symbols-outlined.woff2 GRAD=0 opsz=24 wght=400 --output public/fonts/material-symbols-outlined-basic-v1.woff2`
+using fontTools with WOFF2/Brotli support. Change the filename and both references
+in `src/app/layout.js` and `src/app/globals.css` to invalidate cached copies.
+
 Outbound TLS verification is mandatory: certificate failures are returned without
 insecure retry or proxy-to-direct replay. Legacy `STRICT_SSL` is no longer read;
 unset, `false` and `0` cannot disable verification. Corporate CAs must be trusted

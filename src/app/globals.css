@@ -3,9 +3,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Hide icon ligature text until font is ready */
+/* Never expose icon ligature names while the font is loading or unavailable. */
 .material-symbols-outlined { opacity: 0; }
 .fonts-loaded .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .fonts-loaded .material-symbols-outlined { transition: none; }
+}
 
 /* ============================================================
    9Router palette — adopted from 9remote_private/web
@@ -441,6 +444,13 @@ input[type="radio"]:not(.sr-only):disabled {
 .traffic-light.green { background: #27C93F; }
 
 /* Material Symbols */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined-basic-v1.woff2') format('woff2');
+}
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
