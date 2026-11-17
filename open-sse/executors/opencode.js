@@ -198,20 +198,38 @@ const stableSessionCleanup = setInterval(() => {
 }, MEMORY_CONFIG.sessionCleanupIntervalMs);
 if (stableSessionCleanup.unref) stableSessionCleanup.unref();
 
-function identityKey(credentials) {
-  const connectionId = credentials?.connectionId || credentials?.id;
-  if (connectionId) return `opencode:conn:${String(connectionId).slice(0, 128)}`;
+// Generic clients share a null clientTool; use their User-Agent to keep their
+// upstream free-tier session pools separate. Named clients keep their stable
+// detector identity so UA version changes do not rotate their sessions.
+function clientIdentity(clientTool, headers) {
+  const named = String(clientTool || "").trim();
+  if (named) return named;
+  let ua = "";
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (key.toLowerCase() === "user-agent") {
+      ua = String(value || "");
+      break;
+    }
+  }
+  return ua ? crypto.createHash("sha256").update(ua).digest("hex").slice(0, 16) : "";
+}
+
+function identityKey(credentials, clientTool = "") {
   const raw = credentials?.rawHeaders || {};
+  const client = clientIdentity(clientTool, raw) || "generic";
+  const connectionId = credentials?.connectionId || credentials?.id;
+  if (connectionId) return `opencode:conn:${String(connectionId).slice(0, 128)}:${client}`;
   const auth = raw.authorization || raw.Authorization || raw["x-api-key"] || raw["X-Api-Key"] || "";
   if (auth) {
     const digest = crypto.createHash("sha256").update(String(auth)).digest("hex").slice(0, 32);
-    return `opencode:auth:${digest}`;
+    return `opencode:auth:${digest}:${client}`;
   }
-  return "opencode:default";
+  return `opencode:default:${client}`;
 }
 
-export function stableSessionId(credentials) {
-  const key = identityKey(credentials);
+export function stableSessionId(credentials, clientTool = "") {
+  const key = identityKey(credentials, clientTool);
+
   const existing = stableOpencodeSessions.get(key);
   if (existing) {
     existing.lastUsed = Date.now();
@@ -297,6 +315,8 @@ function resolveOpencodeSession(body, credentials, providerSessionId, clientTool
   const native = nativeSession(headers);
   if (native) return native;
 
+  const client = clientIdentity(clientTool, headers);
+
   let incoming = null;
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() === SESSION_HEADER) {
@@ -306,7 +326,7 @@ function resolveOpencodeSession(body, credentials, providerSessionId, clientTool
   }
 
   const hinted = incoming || normalizeSession(providerSessionId);
-  if (hinted) return translateSessionId(hinted, clientTool);
+  if (hinted) return translateSessionId(hinted, client);
 
   if (credentials?.connectionId || bodyHasSessionHints(body)) {
     let viaManager = null;
@@ -320,10 +340,10 @@ function resolveOpencodeSession(body, credentials, providerSessionId, clientTool
     } catch {
       viaManager = null;
     }
-    if (viaManager) return translateSessionId(viaManager, clientTool);
+    if (viaManager) return translateSessionId(viaManager, client);
   }
 
-  return stableSessionId(credentials);
+  return stableSessionId(credentials, client);
 }
 
 function normalizeResponsesTools(body) {

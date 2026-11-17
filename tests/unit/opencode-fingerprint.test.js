@@ -139,6 +139,45 @@ describe("opencodeFingerprint — request side", () => {
     expect(sent).toContain("shell");
   });
 
+  it("aliases ReportFindings and exec_command tool names while preserving their caller names", () => {
+    const body = { tools: chat(["ReportFindings", "ScheduleWakeup", "DeferredToolPlaceholder", "exec_command"]) };
+    const map = applyFingerprintTools(body, false);
+    const sent = namesOf(body.tools);
+
+    expect(sent.filter((name) => /reportfindings|exec_command/i.test(name))).toEqual([]);
+    expect(sent).toContain("ScheduleWakeup");
+    expect(sent).toContain("DeferredToolPlaceholder");
+    expect(map.get("run_command")).toBe("ReportFindings");
+    expect(map.get("run_command2")).toBe("exec_command");
+    expect(restoreToolNames({ choices: [{ message: { tool_calls: [
+      { function: { name: "run_command" } },
+      { function: { name: "run_command2" } },
+    ] } }] }, map).choices[0].message.tool_calls.map((call) => call.function.name))
+      .toEqual(["ReportFindings", "exec_command"]);
+  });
+
+  it("aliases name+schema gated tools and avoids collisions with declared aliases", () => {
+    const body = { tools: [
+      ...chat(["file_edit", "file_read"]),
+      { type: "function", function: { name: "Edit", parameters: { properties: { old_string: {}, new_string: {} } } } },
+      { type: "function", function: { name: "Read", parameters: { properties: { file_path: {} } } } },
+      { type: "function", function: { name: "Other", parameters: { properties: { file_path: {} } } } },
+    ] };
+    const map = applyFingerprintTools(body, false);
+    const sent = namesOf(body.tools);
+
+    expect(sent).toContain("file_edit2");
+    expect(sent).toContain("file_read2");
+    expect(map.get("file_edit2")).toBe("Edit");
+    expect(map.get("file_read2")).toBe("Read");
+    expect(sent).toContain("Other");
+    const restored = restoreToolNames({ output: [
+      { type: "function_call", name: "file_edit2" },
+      { type: "function_call", name: "file_read2" },
+    ] }, map);
+    expect(restored.output.map((item) => item.name)).toEqual(["Edit", "Read"]);
+  });
+
   it("restores the gated name on the response and aliases its history calls", () => {
     const body = {
       tools: chat(["terminal"]),

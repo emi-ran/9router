@@ -25,15 +25,17 @@ import path from "node:path";
 /** Names required by the upstream free-tier gate. */
 export const OPENCODE_FINGERPRINT_TOOLS = ["read", "shell"];
 
-// A second, purely textual gate on the same route: a declared tool name
-// containing "terminal" (case-insensitive substring) is answered 429
-// FreeUsageLimitError regardless of quota, IP, session or payload size, while
-// the same body with only that name changed answers normally
-// (decolua/9router#5319). Only `tools[]` is inspected — history and system
-// prompt are not — so the declaration travels under an alias and the caller's
-// name is restored on the way back, like a fingerprint-name collision.
-export const GATED_TOOL_NAME_RE = /terminal/i;
+// Upstream rejects these declared tool names on the free lane; preserve each
+// caller name locally while sending a collision-safe alias.
+export const GATED_TOOL_NAME_RE = /(?:terminal|reportfindings|^exec_command$)/i;
 const GATED_TOOL_ALIAS = "run_command";
+
+// A separate name+schema gate fingerprints these tools by their parameter
+// properties. Keep Read case-sensitive to avoid aliasing unrelated tools.
+const GATED_NAME_SCHEMA_RULES = [
+  { re: /^edit$/i, props: ["old_string", "new_string"], alias: "file_edit" },
+  { re: /^Read$/, props: ["file_path"], alias: "file_read" },
+];
 
 // Verbatim from the OpenCode v2.0.26 CLI. Upstream compares description and
 // parameters, so do not reword or reformat these.
@@ -92,6 +94,22 @@ function toolNameOf(tool) {
 function chatFunctionOf(tool) {
   const fn = tool?.function;
   return fn && typeof fn === "object" && !Array.isArray(fn) ? fn : null;
+}
+
+/** Declared parameter properties, for flat or chat-completions tool shapes. */
+function declaredProps(tool) {
+  const def = chatFunctionOf(tool) || tool;
+  const props = def?.parameters?.properties;
+  return props && typeof props === "object" && !Array.isArray(props) ? Object.keys(props) : [];
+}
+
+/** Return an alias for a tool caught by the name+schema gate, if any. */
+function gatedNameSchemaAlias(tool, name) {
+  const props = declaredProps(tool);
+  for (const rule of GATED_NAME_SCHEMA_RULES) {
+    if (rule.re.test(name) && rule.props.some((prop) => props.includes(prop))) return rule.alias;
+  }
+  return "";
 }
 
 /** True when `tool` already carries OpenCode's exact definition for `key`. */
@@ -169,6 +187,15 @@ export function concealFingerprintToolNames(tools) {
     if (GATED_TOOL_NAME_RE.test(name)) {
       let alias = GATED_TOOL_ALIAS;
       for (let i = 2; taken.has(alias); i++) alias = `${GATED_TOOL_ALIAS}${i}`;
+      taken.add(alias);
+      map.set(alias, name);
+      out.push(withToolName(tool, alias));
+      continue;
+    }
+    const schemaAlias = gatedNameSchemaAlias(tool, name);
+    if (schemaAlias) {
+      let alias = schemaAlias;
+      for (let i = 2; taken.has(alias); i++) alias = `${schemaAlias}${i}`;
       taken.add(alias);
       map.set(alias, name);
       out.push(withToolName(tool, alias));

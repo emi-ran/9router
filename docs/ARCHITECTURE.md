@@ -70,7 +70,12 @@ Three request properties are load-bearing and must not be "cleaned up":
 
 One stable session per downstream identity is intentional: upstream accounts
 free-tier quota per session, so expiring or rotating it burns quota and surfaces
-as `429` with a growing `retry-after`.
+as `429` with a growing `retry-after`. The identity includes the detected
+`clientTool`; when no client tool is detected, the downstream `User-Agent` is
+hashed into the identity so generic clients sharing an API key do not share a
+session. Requests with a native valid OpenCode session retain it. Rejected
+router-minted sessions are still evicted by session value so the next request
+can mint a replacement without deleting a concurrent replacement.
 
 ### Codex function-tool strict mode
 

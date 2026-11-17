@@ -161,6 +161,38 @@ describe("OpenCode Free Executor Session Resolution", () => {
     expect(convA).not.toBe(convB);
     expect(toolClaude).not.toBe(toolCodex);
   });
+  it("isolates generic client sessions by User-Agent", () => {
+    const executor = getExecutor("opencode");
+    const credentialsFor = (userAgent) => makeCredentials({
+      connectionId: undefined,
+      rawHeaders: { "User-Agent": userAgent },
+    });
+    const prepareFor = (userAgent) => executor.prepareRequestCredentials({
+      body: { messages: [{ role: "user", content: "hello" }] },
+      credentials: credentialsFor(userAgent),
+      providerSessionId: null,
+      clientTool: null,
+    })._opencodeSession;
+
+    const first = prepareFor("omp/18.22.0");
+    expect(prepareFor("omp/18.22.0")).toBe(first);
+    expect(prepareFor("other-client/1.0")).not.toBe(first);
+  });
+
+  it("uses User-Agent to isolate translated generic conversation sessions", () => {
+    const executor = getExecutor("opencode");
+    const prepareFor = (userAgent) => executor.prepareRequestCredentials({
+      body: { messages: [{ role: "user", content: "hello" }] },
+      credentials: makeCredentials({ rawHeaders: { "user-agent": userAgent } }),
+      providerSessionId: "shared-conversation",
+      clientTool: null,
+    })._opencodeSession;
+
+    const first = prepareFor("omp/18.22.0");
+    expect(prepareFor("omp/18.22.0")).toBe(first);
+    expect(prepareFor("other-client/1.0")).not.toBe(first);
+  });
+
 
   it("adds the valid session header to fetch requests", async () => {
     const executor = getExecutor("opencode");
