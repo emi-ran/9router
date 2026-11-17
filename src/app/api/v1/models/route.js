@@ -21,7 +21,7 @@ export async function buildModelsList(kindFilter) {
     const owner = providerId(alias);
     if (!AI_PROVIDERS[owner] || !kindsFor(owner).includes(kind)) return;
     if (kind === "llm" && !CHAT_PROVIDERS.has(owner)) return;
-    if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes("llm"))) return;
+    if (!kindFilter.includes(kind)) return;
     if (disabled[alias]?.includes(id) || disabled[owner]?.includes(id)) return;
     const entry = { id: `${alias}/${id}`, object: "model", owned_by: alias };
     if (CHAT_PROVIDERS.has(owner)) {

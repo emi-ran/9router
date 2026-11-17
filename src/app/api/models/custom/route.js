@@ -41,7 +41,7 @@ export async function POST(request) {
     const { providerAlias, id, type, name, caps, transport } = await request.json();
     const provider = getProviderByAlias(providerAlias);
     const kind = type || "llm";
-    if (!provider || !["llm", "image", "imageToText", "webSearch", "webFetch"].includes(kind)
+    if (!provider || !["llm", "image", "webSearch", "webFetch"].includes(kind)
       || (kind === "llm" && !["antigravity", "codex", "opencode"].includes(provider.id))) {
       return NextResponse.json({ error: "Unsupported provider or model kind" }, { status: 400 });
     }

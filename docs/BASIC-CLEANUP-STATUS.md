@@ -142,12 +142,11 @@ Exact remaining blockers:
 - **Product/data decision:** DB request identity/idempotency requires approval;
   independent identical same-millisecond requests currently deduplicate. No
   schema or persistence change made.
-- **Missing route/ownership:** `/v1/images/understanding` is advertised in
-  `src/shared/constants/providers.js` but `src/app/api/v1/images` contains only
-  `generations`. `src/app/api/v1/models/info/route.js` points imageToText at chat
-  completions. A nonexistent route cannot receive end-to-end mock verification.
-  Adding endpoint is public-contract/S1 ownership decision; not silently added.
-  Existing mocked chat adapter checks preserve images and capability HTTP 400.
+- **Image-to-text route warning (closed):** `imageToText` is removed from
+  `MEDIA_PROVIDER_KINDS` and its effective service-kind allowlist is empty in
+  `src/mine/providers/mediaKinds.js`. Providers may retain the upstream kind in
+  their `serviceKinds`, but the active filter excludes it; no image-to-text route
+  is exposed by the fork.
 - **Environment:** actual `npm --prefix gitbook run build` exited 1 because
   Turbopack root `gitbook` could not resolve `next/package.json`; Gitbook-local
   dependencies are not installed. No install or config workaround performed.
@@ -178,7 +177,6 @@ records, and import pre-validation prevents partial writes or corrupted DB state
 - Model alias validation resolves alias chains to canonical provider/model targets while dropping dangling, cyclic, and bare-provider strings.
 - Custom models enforce provider media registry allowlists.
 - Any validation failure rolls back before writes, preserving existing SQLite database bytes and table rows intact.
-Image-to-text entire route path and isolated UI checks remain unverified.
 Broad shared core edits create high upstream merge-conflict risk.
 
 Validation logs/inventory live in approved temporary directory under

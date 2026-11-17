@@ -59,7 +59,8 @@ describe("Xquik search provider", () => {
       },
     });
     expect(AI_PROVIDERS.xquik?.searchConfig).toEqual(entry.searchConfig);
-    expect(getProvidersByKind("webSearch").map((provider) => provider.id)).toContain("xquik");
+    // Fork policy: only brave-search, exa, tinyfish and tavily stay exposed.
+    expect(getProvidersByKind("webSearch").map((provider) => provider.id)).not.toContain("xquik");
   });
 
   it("builds the documented GET request without putting the key in the URL", () => {

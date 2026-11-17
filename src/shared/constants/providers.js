@@ -1,10 +1,11 @@
 // Provider definitions
 import REGISTRY from "open-sse/providers/registry/index.js";
 import { RISK_NOTICE } from "@/shared/constants/providersDisplay.js";
+import { filterServiceKinds } from "@/mine/providers/mediaKinds.js";
 
 const MEDIA_ENTRY_KEYS = [
   "serviceKinds",
-  "imageConfig", "imageToTextConfig", "musicConfig",
+  "imageConfig", "musicConfig",
   "searchViaChat", "searchConfig", "fetchConfig", "credentialFallback",
   "modelsFetcher", "mediaPriority", "hiddenKinds",
 ];
@@ -15,6 +16,10 @@ function buildProviderEntry(r) {
   if (r.media) Object.assign(mediaFields, r.media);
   for (const k of MEDIA_ENTRY_KEYS) {
     if (r[k] !== undefined) mediaFields[k] = r[k];
+  }
+  // Fork policy: narrow effective service kinds (see src/mine/providers/mediaKinds.js).
+  if (mediaFields.serviceKinds) {
+    mediaFields.serviceKinds = filterServiceKinds(r.id, mediaFields.serviceKinds);
   }
   const display = { ...(r.display || {}) };
   if (display.deprecationNotice === "RISK_NOTICE") display.deprecationNotice = RISK_NOTICE;
@@ -75,7 +80,6 @@ export const MEDIA_PROVIDER_KINDS = [
   { id: "tts",         label: "Text to speech", icon: "record_voice_over", endpoint: { method: "POST", path: "/v1/audio/speech" } },
   { id: "stt",         label: "Speech to Text", icon: "mic",               endpoint: { method: "POST", path: "/v1/audio/transcriptions" } },
   { id: "image",       label: "Text to Image",  icon: "brush",             endpoint: { method: "POST", path: "/v1/images/generations" } },
-  { id: "imageToText", label: "Image to Text",  icon: "image_search",      endpoint: { method: "POST", path: "/v1/images/understanding" } },
   { id: "webSearch",   label: "Web Search",     icon: "travel_explore",    endpoint: { method: "POST", path: "/v1/search" } },
   { id: "webFetch",    label: "Web Fetch",      icon: "language",          endpoint: { method: "POST", path: "/v1/web/fetch" } },
   { id: "music",       label: "Music",          icon: "music_note",        endpoint: { method: "POST", path: "/v1/audio/music" } },

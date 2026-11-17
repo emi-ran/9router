@@ -51,14 +51,6 @@ export const KIND_EXAMPLE_CONFIG = {
       { key: "output_format", label: "Codec", type: "select", default: "png", options: ["png", "jpeg", "webp"] },
     ],
   },
-  imageToText: {
-    inputLabel: "Image URL",
-    inputPlaceholder: "https://example.com/image.png",
-    defaultInput: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg",
-    bodyKey: "url",
-    extraBody: { prompt: "Describe this image in detail" },
-    defaultResponse: `{\n  "text": "A cat sitting on a windowsill...",\n  "model": "..."\n}`,
-  },
   video: {
     inputLabel: "Prompt",
     inputPlaceholder: "A serene lake at sunset",

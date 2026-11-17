@@ -37,7 +37,7 @@ export function expandProviderWildcards(models, { customModels = [], disabled = 
     ];
     for (const model of candidates) {
       const kind = model.kind || model.type || "llm";
-      if (!["llm", "imageToText"].includes(kind) || typeof model.id !== "string" || !model.id || model.id.includes("*")) continue;
+      if (kind !== "llm" || typeof model.id !== "string" || !model.id || model.id.includes("*")) continue;
       if (disabledIds.has(model.id)) continue;
       if (active.length && !active.some((account) => accountAllowsModel(account, model.id, id))) continue;
       const value = `${alias}/${model.id}`;

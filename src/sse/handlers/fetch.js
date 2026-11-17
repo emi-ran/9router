@@ -7,6 +7,7 @@ import {
 } from "../services/auth.js";
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
+import { isServiceKindAllowed } from "@/mine/providers/mediaKinds.js";
 import { handleFetchCore } from "open-sse/handlers/fetch/index.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -123,7 +124,7 @@ async function handleSingleProviderFetch(body, providerInput, request, apiKey, s
   }
 
   const providerConfig = resolvedProvider.fetchConfig;
-  if (!providerConfig) {
+  if (!isServiceKindAllowed(providerId, "webFetch") || !providerConfig) {
     log.warn("FETCH", "Provider does not support web fetch", { provider: providerId });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${providerId} does not support web fetch`);
   }

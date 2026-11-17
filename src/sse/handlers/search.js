@@ -7,6 +7,7 @@ import {
 } from "../services/auth.js";
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
+import { isServiceKindAllowed } from "@/mine/providers/mediaKinds.js";
 import { handleSearchCore } from "open-sse/handlers/search/index.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -103,7 +104,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
   const providerConfig = resolvedProvider.searchConfig;
   const supportsSearch = !!providerConfig || !!resolvedProvider.searchViaChat;
 
-  if (!supportsSearch) {
+  if (!isServiceKindAllowed(providerId, "webSearch") || !supportsSearch) {
     log.warn("SEARCH", "Provider does not support web search", { provider: providerId });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${providerId} does not support web search`);
   }

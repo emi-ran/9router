@@ -2,11 +2,13 @@
 
 _Last updated: 2026-02-06_
 
-## Basic fork scope update (2026-10-07)
+## Basic fork scope update (2026-11-17)
 
 This scope overrides historical upstream provider/lifecycle descriptions below.
 Chat dispatch and model aliases permit Antigravity, Codex and OpenCode Free only.
-Image and Search remain independent; Web Fetch permits TinyFish and Tavily.
+Text to Image is limited to Codex and Antigravity; Image to Text is removed.
+Web Search permits Brave Search, Exa, TinyFish and Tavily. Web Fetch permits
+TinyFish and Tavily; Brave Search and Exa declare search only.
 Token Saver and CLI configuration tools are removed, together with embedding,
 TTS, STT, video, SystemOne and dashboard SSO. Password/remember-me/CSRF and
 Antigravity/Codex OAuth remain. Stored unsupported records remain on disk but
