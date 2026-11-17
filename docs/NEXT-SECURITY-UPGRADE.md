@@ -166,3 +166,28 @@ CN/SAN are localhost/127.0.0.1 only, never production/provider credentials.
 The evidence gap was closed for failure identities across the full suite, **not**
 for the correctness of the 157 underlying failures. Suite remains red. Docker
 image execution, global runtime upgrade and production deployment remain unverified.
+
+# Next.js security upgrade — 2026-11-17
+
+<!-- next-upgrade: security; path="." -->
+
+Target: `basic` on `feature/basic-next-16.4.6-security`. Installed Next.js `16.4.3`
+is updated and pinned to `16.4.6`, the latest security patch of the `16.4` line;
+`eslint-config-next` moves from `16.1.6` to `16.4.6` and the npm lockfile is
+synchronized. The installed `experimental.agentUpgrade: "security"` helper only
+prints a handoff prompt and makes no edits, so installation used
+`npm install --save-exact next@16.4.6 eslint-config-next@16.4.6` as that prompt
+prescribes. No source changes were required.
+
+Verification:
+
+- `next/package.json` and `npm ls next eslint-config-next --depth=0` report both
+  packages at `16.4.6`.
+- Production build passed, including postbuild asset copying.
+- Focused Vitest media-kind and capability checks: 2 files, 5 tests passed.
+- Native basic suite: 43 passed, 1 failed. The
+  `tests/unit/basic-provider-media.test.js:70` retained-STT-route assertion is a
+  pre-existing failure, identical to the documented baseline; no test was changed.
+- `npx eslint --print-config src/shared/constants/providers.js` exits 0.
+- npm reports the pre-existing `EBADENGINE` warning (declared engines
+  `^22.23.4 || ^24.22.1`, machine Node 24.21.0); it is not introduced here.

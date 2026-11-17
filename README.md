@@ -12,7 +12,8 @@ The npm `undici` dependency and Node's built-in fetch decoder require separate
 updates; `npm install` does not patch the installed Node executable. See
 `docs/NEXT-SECURITY-UPGRADE.md` for the advisory and runtime verification.
 
-Next.js is pinned to `16.4.3` for the security update from installed `16.4.0`.
+Next.js is pinned to `16.4.6`, the latest security patch of the `16.4` line,
+upgraded from `16.4.3`.
 `experimental.agentUpgrade: "security"` enables security upgrade reminders;
 it does not automatically install updates.
 
