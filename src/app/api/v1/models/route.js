@@ -9,6 +9,8 @@ import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode", "claude"]);
 const aliasToId = { ...Object.fromEntries(Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])), ...ALIAS_TO_ID };
 const providerId = (alias) => aliasToId[alias] || alias;
+// Drop a trailing thinking-level override such as "(max)" from a combo seat model id; it is not part of the capability key.
+const seatModel = (seat, slash) => seat.slice(slash + 1).replace(/\([^()]+\)\s*$/, "").trim();
 const kindsFor = (id) => AI_PROVIDERS[id]?.serviceKinds || (CHAT_PROVIDERS.has(id) ? ["llm"] : []);
 
 export async function buildModelsList(kindFilter) {
@@ -87,7 +89,7 @@ export async function buildModelsList(kindFilter) {
       const next = new Set(seen).add(item.name);
       for (const seat of item.models || []) {
         const slash = seat.indexOf("/");
-        if (slash > 0) caps.push(getCapabilitiesForModel(providerId(seat.slice(0, slash)), seat.slice(slash + 1)));
+        if (slash > 0) caps.push(getCapabilitiesForModel(providerId(seat.slice(0, slash)), seatModel(seat, slash)));
         else if (byName.has(seat)) scan(byName.get(seat), next);
       }
     };
@@ -101,7 +103,7 @@ export async function buildModelsList(kindFilter) {
     if (combo.kind === "webSearch" || combo.kind === "webFetch") entry.kind = combo.kind;
     else entry.capabilities = aggregateComboCapabilities(combo.models, Object.fromEntries(combos.map((c) => [c.name, c.models])), (seat) => {
       const slash = seat.indexOf("/");
-      return slash > 0 ? getCapabilitiesForModel(providerId(seat.slice(0, slash)), seat.slice(slash + 1)) : null;
+      return slash > 0 ? getCapabilitiesForModel(providerId(seat.slice(0, slash)), seatModel(seat, slash)) : null;
     });
     entries.set(entry.id, entry);
     if (!combo.kind || combo.kind === "llm") Object.assign(entry, limitsFor(combo));
