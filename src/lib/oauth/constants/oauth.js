@@ -11,6 +11,8 @@ function getOAuthPlatformEnum() {
   return 0;
 }
 
+export const CLAUDE_CONFIG = { ...PROVIDER_OAUTH["claude"] };
+
 export const CODEX_CONFIG = { ...PROVIDER_OAUTH["codex"] };
 
 export const ANTIGRAVITY_CONFIG = {

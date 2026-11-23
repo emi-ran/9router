@@ -1,5 +1,11 @@
 
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
+
+// Bind the PKCE attempt to an HttpOnly browser cookie, not client-supplied state.
+const claudeAttempts = globalThis.__claudeOAuthAttempts ||= new Map();
+const CLAUDE_COOKIE = "claude_oauth_attempt";
+const ATTEMPT_TTL = 10 * 60 * 1000;
 import { generateAuthData, exchangeTokens } from "@/lib/oauth/providers";
 import { createProviderConnection } from "@/models";
 
@@ -15,7 +21,7 @@ import { startCodexProxy, stopCodexProxy, registerCodexSession, getCodexSessionS
 export async function GET(request, { params }) {
   try {
     const { provider, action } = await params;
-    if (!["codex", "antigravity"].includes(provider)) return NextResponse.json({ error: "Unsupported OAuth provider" }, { status: 400 });
+    if (!["codex", "antigravity", "claude"].includes(provider)) return NextResponse.json({ error: "Unsupported OAuth provider" }, { status: 400 });
     const { searchParams } = new URL(request.url);
 
     if (action === "authorize") {
@@ -30,6 +36,15 @@ export async function GET(request, { params }) {
       // is bound to the port the proxy is actually listening on.
 
       const authData = await generateAuthData(provider, redirectUri, Object.keys(meta).length ? meta : undefined);
+      if (provider === "claude") {
+        const now = Date.now();
+        for (const [key, attempt] of claudeAttempts) if (attempt.expiresAt <= now) claudeAttempts.delete(key);
+        const id = randomBytes(32).toString("hex");
+        claudeAttempts.set(id, { state: authData.state, verifier: authData.codeVerifier, redirectUri, expiresAt: now + ATTEMPT_TTL });
+        const response = NextResponse.json(authData);
+        response.cookies.set(CLAUDE_COOKIE, id, { httpOnly: true, sameSite: "strict", secure: new URL(request.url).protocol === "https:", path: "/api/oauth/claude", maxAge: ATTEMPT_TTL / 1000 });
+        return response;
+      }
       return NextResponse.json(authData);
     }
 
@@ -90,7 +105,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { provider, action } = await params;
-    if (!["codex", "antigravity"].includes(provider)) return NextResponse.json({ error: "Unsupported OAuth provider" }, { status: 400 });
+    if (!["codex", "antigravity", "claude"].includes(provider)) return NextResponse.json({ error: "Unsupported OAuth provider" }, { status: 400 });
     let body;
     try {
       body = await request.json();
@@ -108,7 +123,7 @@ export async function POST(request, { params }) {
       // exchangeTokens() handles both paths; no PKCE, skip codex JWT extraction.
 
       // Detect if "code" is actually a raw JWT access token (starts with eyJ)
-      if (code && code.startsWith("eyJ") && code.includes(".")) {
+      if (provider === "codex" && code && code.startsWith("eyJ") && code.includes(".")) {
         const { extractCodexAccountInfo } = await import("@/lib/oauth/providers");
         const info = extractCodexAccountInfo(code);
 
@@ -155,6 +170,16 @@ export async function POST(request, { params }) {
       const noPkceExchangeProviders = ["cline", "clinepass", "kimchi"];
       if (!code || !redirectUri || (!codeVerifier && !noPkceExchangeProviders.includes(provider))) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
+
+      if (provider === "claude") {
+        const id = request.cookies?.get(CLAUDE_COOKIE)?.value;
+        const attempt = id && claudeAttempts.get(id);
+        if (id) claudeAttempts.delete(id); // one exchange per attempt, including failures
+        const fragment = typeof code === "string" && code.includes("#") ? code.split("#")[1] : null;
+        if (!attempt || attempt.expiresAt <= Date.now() || attempt.state !== state || attempt.verifier !== codeVerifier || attempt.redirectUri !== redirectUri || (fragment !== null && fragment !== attempt.state)) {
+          return NextResponse.json({ error: "Invalid or expired OAuth attempt" }, { status: 400 });
+        }
       }
 
       // Exchange code for tokens (meta carries provider-specific params, e.g. gitlab clientId/baseUrl).

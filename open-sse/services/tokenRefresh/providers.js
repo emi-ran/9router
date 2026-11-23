@@ -1,5 +1,6 @@
 import { PROVIDERS } from "../../config/providers.js";
 import { OAUTH_ENDPOINTS } from "../../config/appConstants.js";
+import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { dedupRefresh } from "./dedup.js";
 
 export async function refreshGoogleToken(refreshToken, clientId, clientSecret, log) {
@@ -125,5 +126,22 @@ export async function refreshCodexToken(refreshToken, log) {
       log?.error?.("TOKEN_REFRESH", `Network error refreshing Codex token: ${error.message}`);
       return null;
     }
+  }, log);
+}
+
+export async function refreshClaudeToken(refreshToken, log, proxyOptions = null) {
+  if (!refreshToken) return null;
+  return dedupRefresh("claude", refreshToken, async () => {
+    try {
+      const config = PROVIDERS.claude;
+      const response = await proxyAwareFetch(config.tokenUrl, {
+        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: config.clientId }),
+      }, proxyOptions);
+      if (!response.ok) { log?.warn?.("TOKEN_REFRESH", `Claude refresh failed: HTTP ${response.status}`); return null; }
+      const tokens = await response.json();
+      if (!tokens.access_token) return null;
+      return { accessToken: tokens.access_token, refreshToken: tokens.refresh_token || refreshToken, expiresIn: tokens.expires_in };
+    } catch { log?.warn?.("TOKEN_REFRESH", "Claude refresh network failure"); return null; }
   }, log);
 }

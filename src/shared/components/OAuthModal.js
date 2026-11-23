@@ -86,6 +86,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const exchangeTokens = useCallback(async (code, state) => {
     if (!authData) return;
     try {
+      if (provider === "claude" && state !== authData.state) throw new Error("OAuth state mismatch");
       const res = await fetch(`/api/oauth/${provider}/exchange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -355,7 +356,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       // Authorization code flow - build redirect URI (some providers require fixed ports)
       const appPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
       let redirectUri;
-      if (provider === "codex") {
+      if (provider === "claude") {
+        redirectUri = "https://console.anthropic.com/oauth/code/callback";
+      } else if (provider === "codex") {
         redirectUri = "http://localhost:1455/auth/callback";
       } else if (provider === "xai") {
         redirectUri = "http://127.0.0.1:56121/callback";
@@ -708,6 +711,11 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         return;
       }
 
+      if (provider === "claude" && input && !input.includes("://")) {
+        await exchangeTokens(input, authData?.state);
+        return;
+      }
+
       const url = new URL(input);
       const code = url.searchParams.get("code");
       const token = url.searchParams.get("token");
@@ -744,11 +752,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   }, [stopOwnedProxy]);
 
   if (!provider || !providerInfo) return null;
+  const isClaudeProvider = provider === "claude";
   const isXaiProvider = provider === "xai";
   const isKimchiProvider = provider === "kimchi";
   const deviceLoginUrl = deviceData?.verification_uri_complete || deviceData?.verification_uri || "";
   const modalTitle = isXaiProvider ? "Connect Grok Build OAuth" : `Connect ${providerInfo.name}`;
-  const manualPlaceholder = isXaiProvider
+  const manualPlaceholder = isClaudeProvider ? "Paste the authorization code (or code#state)" : isXaiProvider
     ? "http://127.0.0.1:56121/callback?code=... or copied code"
     : isKimchiProvider
       ? `${placeholderUrl.replace("code=...", "token=...")} or copied token`
@@ -849,7 +858,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             {/* Divider */}
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-text-muted uppercase tracking-wider">Or paste callback URL manually</span>
+              <span className="text-xs text-text-muted uppercase tracking-wider">{isClaudeProvider ? "Or paste authorization code manually" : "Or paste callback URL manually"}</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 
@@ -869,10 +878,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
 
               <div>
                 <p className="text-sm font-medium mb-2">
-                  Step 2: Paste the {provider === "xai" ? "callback URL or copied code" : isKimchiProvider ? "callback URL or copied token" : "callback URL"} here
+                  Step 2: Paste the {isClaudeProvider ? "authorization code" : provider === "xai" ? "callback URL or copied code" : isKimchiProvider ? "callback URL or copied token" : "callback URL"} here
                 </p>
                 <p className="text-xs text-text-muted mb-2">
-                  {provider === "xai"
+                  {isClaudeProvider
+                    ? "After authorization, copy the code shown by Anthropic and paste it here."
+                    : provider === "xai"
                     ? "If xAI shows a code instead of redirecting, paste that code here."
                     : isKimchiProvider
                       ? "After authorization, copy the full callback URL or token from your browser."

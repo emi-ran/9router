@@ -2,8 +2,8 @@ import { PROVIDER_ID_TO_ALIAS } from "open-sse/config/providerModels.js";
 import { AI_PROVIDERS, ALIAS_TO_ID } from "@/shared/constants/providers.js";
 import { isRetiredSetting } from "@/lib/db/repos/settingsRepo.js";
 
-const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
-const RETAINED_PREFIXES = new Set(["ag", "antigravity", "cx", "codex", "oc", "opencode"]);
+const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode", "claude"]);
+const RETAINED_PREFIXES = new Set(["ag", "antigravity", "cx", "codex", "oc", "opencode", "cc", "claude"]);
 const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.6-flash-free";
 const ALLOWED_MEDIA_KINDS = new Set(["image", "webSearch", "webFetch", "music"]);
 const MAX_COMBO_NESTING_DEPTH = 20;

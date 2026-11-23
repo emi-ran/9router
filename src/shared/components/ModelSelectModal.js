@@ -221,7 +221,7 @@ export default function ModelSelectModal({
 
     sortedProviderIds.forEach((providerId) => {
       if (!AI_PROVIDERS[providerId]) return;
-      if ((!kindFilter || kindFilter === "llm") && !["antigravity", "codex", "opencode"].includes(providerId)) return;
+      if ((!kindFilter || kindFilter === "llm") && !["antigravity", "codex", "opencode", "claude"].includes(providerId)) return;
       const alias = getProviderAlias(providerId);
       const providerInfo = allProviders[providerId] || { name: providerId, color: "#666" };
       const isCustomProvider = false;

@@ -18,7 +18,7 @@ const BUILTIN_MODEL_ALIASES = {};
  */
 export function resolveProviderAlias(aliasOrId) {
   const id = ALIAS_TO_PROVIDER_ID[aliasOrId];
-  return ["antigravity", "codex", "opencode"].includes(id) ? id : null;
+  return ["antigravity", "codex", "opencode", "claude"].includes(id) ? id : null;
 }
 
 /**

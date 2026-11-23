@@ -93,7 +93,7 @@ export function detectFormat(body) {
 
 // Get provider config (internal — no external runtime consumer)
 function getProviderConfig(provider, credentials = null) {
-  if (!["antigravity", "codex", "opencode"].includes(provider) || !PROVIDERS[provider]) {
+  if (!["antigravity", "codex", "opencode", "claude"].includes(provider) || !PROVIDERS[provider]) {
     throw new Error(`Unsupported chat provider: ${provider}`);
   }
   return PROVIDERS[provider];

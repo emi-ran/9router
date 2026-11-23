@@ -42,7 +42,7 @@ export async function POST(request) {
     const provider = getProviderByAlias(providerAlias);
     const kind = type || "llm";
     if (!provider || !["llm", "image", "webSearch", "webFetch"].includes(kind)
-      || (kind === "llm" && !["antigravity", "codex", "opencode"].includes(provider.id))) {
+      || (kind === "llm" && !["antigravity", "codex", "opencode", "claude"].includes(provider.id))) {
       return NextResponse.json({ error: "Unsupported provider or model kind" }, { status: 400 });
     }
     if (!providerAlias || !id) {

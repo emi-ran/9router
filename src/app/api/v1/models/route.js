@@ -6,7 +6,7 @@ import { codexTranscriptionModels } from "@/mine/stt/catalog.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
-const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode"]);
+const CHAT_PROVIDERS = new Set(["antigravity", "codex", "opencode", "claude"]);
 const aliasToId = { ...Object.fromEntries(Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])), ...ALIAS_TO_ID };
 const providerId = (alias) => aliasToId[alias] || alias;
 const kindsFor = (id) => AI_PROVIDERS[id]?.serviceKinds || (CHAT_PROVIDERS.has(id) ? ["llm"] : []);

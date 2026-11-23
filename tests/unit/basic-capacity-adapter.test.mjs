@@ -53,3 +53,12 @@ test("complete history, images and stream identity survive adapter callback", as
     assert.equal(calls, 1);
   }
 });
+
+test("Claude models survive combo and vision routing", () => {
+  for (const provider of ["claude", "cc"]) {
+    const model = `${provider}/claude-sonnet-4-5`;
+    assert.deepEqual(augmentModelsWithCapacityAdapter([model], new Set(), {}), [model]);
+    assert.deepEqual(augmentModelsWithCapacityAdapter([model], new Set(["vision"]), {}), [model]);
+    assert.deepEqual(getCapacityAdapterModels({ capacityAdapter: { vision: [model] } }), [model]);
+  }
+});

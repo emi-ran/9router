@@ -6,7 +6,7 @@ import { AI_PROVIDERS, ALIAS_TO_ID, getProviderAlias } from "@/shared/constants/
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
 const providerId = (alias) => ALIAS_TO_ID[alias] || alias;
-const isChatProvider = (alias) => ["antigravity", "codex", "opencode"].includes(providerId(alias)) && !!AI_PROVIDERS[providerId(alias)];
+const isChatProvider = (alias) => ["antigravity", "codex", "opencode", "claude"].includes(providerId(alias)) && !!AI_PROVIDERS[providerId(alias)];
 
 // GET /api/models - Get models with aliases
 export async function GET() {

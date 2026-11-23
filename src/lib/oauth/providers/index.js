@@ -3,7 +3,8 @@ import { generatePKCE } from "../utils/pkce.js";
 import { extractCodexAccountInfo } from "../providerHelpers.js";
 import codex from "./codex.js";
 import antigravity from "./antigravity.js";
-const PROVIDERS = { codex, antigravity };
+import claude from "./claude.js";
+const PROVIDERS = { codex, antigravity, claude };
 export { PROVIDERS };
 
 // Re-export helpers that other files import from this path

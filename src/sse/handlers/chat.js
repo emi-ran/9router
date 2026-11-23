@@ -229,7 +229,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   }
 
   const { provider, model } = modelInfo;
-  if (!["antigravity", "codex", "opencode"].includes(provider)) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Unsupported chat provider");
+  if (!["antigravity", "codex", "opencode", "claude"].includes(provider)) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Unsupported chat provider");
 
   // Routing shown in the unified "▶" line (client model → provider/model)
 

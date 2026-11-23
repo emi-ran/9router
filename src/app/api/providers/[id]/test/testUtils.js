@@ -4,7 +4,14 @@ import { CODEX_CLI_VERSION } from "open-sse/config/appConstants.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshProviderCredentials } from "open-sse/services/oauthCredentialManager.js";
-const OAUTH_TEST_CONFIG = { codex: {
+const OAUTH_TEST_CONFIG = { claude: {
+    url: "https://api.anthropic.com/api/oauth/profile",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    extraHeaders: { "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01" },
+    refreshable: true,
+  }, codex: {
     url: "https://chatgpt.com/backend-api/codex/responses",
     method: "POST",
     authHeader: "Authorization",
@@ -62,7 +69,7 @@ export async function testSingleConnection(id) {
         const probe = token => proxyAwareFetch(cfg.url, { method: cfg.method, headers: { ...cfg.extraHeaders, [cfg.authHeader]: cfg.authPrefix + token }, body: cfg.body, signal: AbortSignal.timeout(10000) }, proxyOptions);
         let response = await probe(connection.accessToken);
         if ([401, 403].includes(response.status) && connection.refreshToken) {
-          const refreshed = await refreshProviderCredentials(connection.provider, connection, console);
+          const refreshed = await refreshProviderCredentials(connection.provider, connection, console, proxyOptions);
           if (refreshed?.accessToken) { await updateProviderConnection(id, refreshed); response = await probe(refreshed.accessToken); result.refreshed = true; }
         }
         result = { ...result, ...classifyOAuthProbeResult(response, cfg, await response.text()) };

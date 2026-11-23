@@ -111,3 +111,11 @@ and license. Historical translated/upstream guides are not supported-feature
 specifications for this fork.
 
 28 Ekim 2026 güvenlik takibi: lock dosyasındaki body-parser 2.4.0, qs 6.17.0, ip-address 10.7.5 ve geliştirme zincirindeki zod 4.6.7 güncellendi; `npm audit` sıfır bulgu bildirdi.
+
+### Claude Code OAuth on Basic
+
+Claude Code (`cc`) can be connected from Providers using its OAuth authorization code. Paste the code returned by Anthropic into the manual input. This uses a Claude subscription and may be subject to Anthropic restrictions or account risk; it is not an Anthropic API-key integration. Claude quota reporting uses the OAuth usage endpoint. The integration has only been tested offline; upstream authentication, models and streaming require live verification.
+
+Claude OAuth authorization attempts are stored in process memory. A restart loses pending attempts, and multi-instance deployments must route the authorization and exchange requests to the same process; otherwise, restart authorization. This state is not shared across instances.
+
+The initial token exchange occurs before a connection exists, so connection proxy pools and strict-proxy settings do not apply to it. The server's environment proxy settings apply, but the shared transport can fall back to a direct connection if that proxy fails. Enforce proxy-only egress outside 9Router if direct traffic must be prohibited.

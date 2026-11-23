@@ -70,7 +70,7 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const connection = await getProviderConnectionById(id);
   if (!connection) return NextResponse.json({ error: "Connection not found" }, { status: 404 });
-  if (!["codex", "antigravity", "opencode"].includes(connection.provider)) return NextResponse.json({ error: "Unsupported chat provider" }, { status: 400 });
+  if (!["codex", "antigravity", "opencode", "claude"].includes(connection.provider)) return NextResponse.json({ error: "Unsupported chat provider" }, { status: 400 });
   if (connection.provider === "codex") {
     const result = await buildOAuthResolver({
       refreshFn: c => refreshCodexToken(c.refreshToken),

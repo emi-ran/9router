@@ -198,7 +198,7 @@ export async function updateProviderCredentials(connectionId, newCredentials) {
  * @returns {Promise<object>} updated credentials object
  */
 export async function checkAndRefreshToken(provider, credentials, options = {}) {
-  if (!["antigravity", "codex", "opencode"].includes(provider)) {
+  if (!["antigravity", "codex", "opencode", "claude"].includes(provider)) {
     throw new Error(`Unsupported chat provider: ${provider}`);
   }
   let creds = { ...credentials };
@@ -240,7 +240,12 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
       lastRefreshAt: creds.lastRefreshAt || null,
     });
 
-    const newCreds = await _refreshProviderCredentials(provider, creds, log);
+    let proxyOptions = null;
+    if (provider === "claude") {
+      const { resolveConnectionProxyConfig } = await import("../../lib/network/connectionProxy.js");
+      proxyOptions = await resolveConnectionProxyConfig(creds.providerSpecificData || {});
+    }
+    const newCreds = await _refreshProviderCredentials(provider, creds, log, proxyOptions);
     if (newCreds?.accessToken || newCreds?.apiKey || newCreds?.copilotToken) {
       const mergedCreds = {
         ...newCreds,

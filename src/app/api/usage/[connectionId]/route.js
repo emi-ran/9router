@@ -26,7 +26,7 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
   // refreshing with a stale snapshot (reuse) revokes the whole session → account logout.
   const latest = connection.id ? await getProviderConnectionById(connection.id) : null;
   if (latest) connection = latest;
-  if (!["antigravity", "codex"].includes(connection.provider)) throw new Error("Unsupported quota provider");
+  if (!["antigravity", "codex", "claude"].includes(connection.provider)) throw new Error("Unsupported quota provider");
 
   const executor = getExecutor(connection.provider);
 
@@ -143,7 +143,7 @@ export async function GET(request, { params }) {
     if (!connection) {
       return Response.json({ error: "Connection not found" }, { status: 404 });
     }
-    if (!["antigravity", "codex"].includes(connection.provider)) return Response.json({ error: "Unsupported quota provider" }, { status: 400 });
+    if (!["antigravity", "codex", "claude"].includes(connection.provider)) return Response.json({ error: "Unsupported quota provider" }, { status: 400 });
 
     // Allow OAuth connections, plus whitelisted apikey providers (glm/minimax/kiro/...)
     // Kiro's headless api-key flow persists authType "api_key" (underscore) while
@@ -158,14 +158,15 @@ export async function GET(request, { params }) {
       return Response.json({ message: "Usage not available for this connection" });
     }
 
-    // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure
+    // Preserve Claude's strict proxy policy for both quota and credential refresh.
     const proxyConfig = await resolveConnectionProxyConfig(connection.providerSpecificData);
     const proxyOptions = {
       connectionProxyEnabled: proxyConfig.connectionProxyEnabled === true,
       connectionProxyUrl: proxyConfig.connectionProxyUrl || "",
       connectionNoProxy: proxyConfig.connectionNoProxy || "",
       vercelRelayUrl: proxyConfig.vercelRelayUrl || "",
-      strictProxy: false,
+      strictProxy: connection.provider === "claude" && proxyConfig.strictProxy === true,
+      proxyPoolId: proxyConfig.proxyPoolId,
     };
 
     // Refresh credentials only for OAuth connections (apikey has no token refresh)

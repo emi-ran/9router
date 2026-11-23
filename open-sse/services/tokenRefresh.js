@@ -1,6 +1,6 @@
 import { PROVIDERS } from "../config/providers.js";
 import { REFRESH_LEAD_MS } from "../config/appConstants.js";
-import { refreshGoogleToken, refreshCodexToken } from "./tokenRefresh/providers.js";
+import { refreshGoogleToken, refreshCodexToken, refreshClaudeToken } from "./tokenRefresh/providers.js";
 export { refreshGoogleToken, refreshCodexToken, classifyOAuthRefreshError } from "./tokenRefresh/providers.js";
 
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
@@ -64,8 +64,9 @@ export async function getAccessToken(provider, credentials, log) {
   return refreshTokenByProvider(provider, credentials, log);
 }
 
-export async function refreshTokenByProvider(provider, credentials, log) {
+export async function refreshTokenByProvider(provider, credentials, log, proxyOptions = null) {
   if (!credentials?.refreshToken || typeof credentials.refreshToken !== "string") return null;
+  if (provider === "claude") return refreshClaudeToken(credentials.refreshToken, log, proxyOptions);
   if (provider === "codex") return refreshCodexToken(credentials.refreshToken, log);
   if (provider === "antigravity") {
     return refreshGoogleToken(credentials.refreshToken, PROVIDERS.antigravity.clientId, PROVIDERS.antigravity.clientSecret, log);

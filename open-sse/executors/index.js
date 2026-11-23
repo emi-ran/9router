@@ -1,8 +1,10 @@
+import { ClaudeExecutor } from "./claude.js";
 import { AntigravityExecutor } from "./antigravity.js";
 import { CodexExecutor } from "./codex.js";
 import { OpenCodeExecutor } from "./opencode.js";
 
 const executors = {
+  claude: new ClaudeExecutor(),
   antigravity: new AntigravityExecutor(),
   codex: new CodexExecutor(),
   opencode: new OpenCodeExecutor(),

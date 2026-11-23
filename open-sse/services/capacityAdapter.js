@@ -12,7 +12,7 @@ const CAPABILITY_KEYS = ["vision", "pdf", "audioInput", "videoInput"];
 const HARD_CAPS = new Set(CAPABILITY_KEYS);
 const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.6-flash-free";
 const upgradeLegacyModel = (m) => (m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m);
-const RETAINED_PROVIDERS = new Set(["ag", "antigravity", "cx", "codex", "oc", "opencode"]);
+const RETAINED_PROVIDERS = new Set(["ag", "antigravity", "cx", "codex", "oc", "opencode", "claude", "cc"]);
 const isRetainedModel = (model) => typeof model === "string" && RETAINED_PROVIDERS.has(model.slice(0, model.indexOf("/"))) && model.indexOf("/") < model.length - 1;
 
 // Normalize a capability entry to { enabled, roundRobin, models }. Backward-compat:

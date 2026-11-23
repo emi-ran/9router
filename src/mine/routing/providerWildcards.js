@@ -2,7 +2,7 @@ import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "open-sse/config/providerM
 
 // Exact retained-chat provider wildcards only; never discover retired providers
 // from legacy storage or interpret arbitrary glob patterns.
-const CHAT_PROVIDER_IDS = ["antigravity", "codex", "opencode"];
+const CHAT_PROVIDER_IDS = ["antigravity", "codex", "opencode", "claude"];
 const PROVIDERS = new Map(CHAT_PROVIDER_IDS.flatMap((id) => {
   const alias = PROVIDER_ID_TO_ALIAS[id];
   return [[id, { id, alias }], [alias, { id, alias }]];

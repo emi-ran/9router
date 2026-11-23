@@ -43,7 +43,10 @@ import p40 from "./xai.js";
 import p41 from "./xquik.js";
 import p42 from "./youcom.js";
 
+import claude from "./claude.js";
+
 export default [
+  claude,
   p0,
   p1,
   p2,
