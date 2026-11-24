@@ -58,6 +58,10 @@ vi.mock("open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
 
+vi.mock("open-sse/services/usage/claude.js", () => ({
+  getClaudeUsage: vi.fn(),
+}));
+
 vi.mock("open-sse/services/usage/codex.js", () => ({
   getCodexUsage: vi.fn(),
 }));
@@ -72,6 +76,7 @@ describe("quota auto-ping", () => {
   let deps;
   let state;
   let getCodexUsage;
+  let getClaudeUsage;
   let getExecutor;
   let codexResponseText;
 
@@ -82,6 +87,7 @@ describe("quota auto-ping", () => {
     delete global.__quotaAutoPing;
 
     ({ getCodexUsage } = await import("open-sse/services/usage/codex.js"));
+    ({ getClaudeUsage } = await import("open-sse/services/usage/claude.js"));
     ({ getExecutor } = await import("open-sse/executors/index.js"));
     ({ runQuotaAutoPingTick, configureQuotaAutoPing } = await import("../../src/shared/services/quotaAutoPing.js"));
 
@@ -345,14 +351,29 @@ describe("quota auto-ping", () => {
     expect(deps.getExecutor).not.toHaveBeenCalled();
   });
 
-  it("never reactivates legacy Claude auto-ping settings", async () => {
+  it("pings an opted-in Claude Code connection once its 5h window resets", async () => {
     deps.getSettings.mockResolvedValue({ claudeAutoPing: { connections: { "claude-1": true } } });
     deps.getProviderConnections.mockImplementation(async ({ provider }) => (
       provider === "claude" ? [{ id: "claude-1", provider: "claude", authType: "oauth", accessToken: "token" }] : []
     ));
+    getClaudeUsage.mockResolvedValue({
+      quotas: { "session (5h)": { used: 0, total: 100, resetAt: "2026-01-01T12:00:00.000Z" } },
+    });
+
     await runQuotaAutoPingTick(deps, state);
 
-    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+    expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = deps.proxyAwareFetch.mock.calls[0];
+    expect(url).toContain("api.anthropic.com/v1/messages");
+    expect(init.headers.Authorization).toBe("Bearer token");
+    expect(JSON.parse(init.body)).toMatchObject({ model: "claude-haiku-4-5-20251001", max_tokens: 1 });
     expect(deps.getExecutor).not.toHaveBeenCalled();
+  });
+
+  it("does not ping Claude Code connections that did not opt in", async () => {
+    deps.getSettings.mockResolvedValue({ claudeAutoPing: { connections: { "claude-1": false } } });
+    deps.getProviderConnections.mockResolvedValue([]);
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
   });
 });

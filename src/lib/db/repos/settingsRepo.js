@@ -42,7 +42,7 @@ async function readRaw() {
 
 // Ignore retired settings in runtime views; preserve original stored document.
 export function isRetiredSetting(key) {
-  return /^(authMode$|ssoType$|oidc|saml|rtk|headroom|caveman|ponytail|pxpipe|claudeAutoPing$|tailscale|mitm|dnsToolEnabled$)/.test(key);
+  return /^(authMode$|ssoType$|oidc|saml|rtk|headroom|caveman|ponytail|pxpipe|tailscale|mitm|dnsToolEnabled$)/.test(key);
 }
 
 export function withoutRetiredSettings(value) {

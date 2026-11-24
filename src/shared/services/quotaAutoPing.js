@@ -3,16 +3,23 @@ import "open-sse/index.js";
 
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
 import { buildClearModelLocksUpdate } from "open-sse/services/accountFallback.js";
+import { getClaudeUsage } from "open-sse/services/usage/claude.js";
 import { getCodexUsage } from "open-sse/services/usage/codex.js";
 import { getExecutor } from "open-sse/executors/index.js";
+import { CLAUDE_CLI_SPOOF_HEADERS } from "open-sse/providers/shared.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route.js";
 import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
 
 const C = QUOTA_AUTOPING_CONFIG;
+const CLAUDE_PING_URL = "https://api.anthropic.com/v1/messages?beta=true";
 
 const providerHandlers = {
+  claude: {
+    getUsage: getClaudeUsage,
+    sendPing: sendClaudePing,
+  },
   codex: {
     getUsage: getCodexUsage,
     sendPing: sendCodexPing,
@@ -95,6 +102,23 @@ function buildProxyOptions(cfg) {
     vercelRelayUrl: cfg.vercelRelayUrl || "",
     strictProxy: false,
   };
+}
+
+async function sendClaudePing(connection, providerConfig, proxyOptions, deps) {
+  const res = await deps.proxyAwareFetch(CLAUDE_PING_URL, {
+    method: "POST",
+    headers: {
+      ...CLAUDE_CLI_SPOOF_HEADERS,
+      "Authorization": `Bearer ${connection.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: providerConfig.pingModel,
+      max_tokens: providerConfig.pingMaxTokens,
+      messages: [{ role: "user", content: providerConfig.pingText }],
+    }),
+  }, proxyOptions);
+  return res.ok;
 }
 
 function buildCodexPingInput(text) {
