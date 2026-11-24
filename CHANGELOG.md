@@ -1,6 +1,16 @@
 # Unreleased
 
+## Upstream backports (selected from v0.5.123)
+Basic is based on v0.5.119 and carries only these upstream v0.5.123 fixes; the rest of v0.5.123 (Antigravity, Kiro, NVIDIA, ElevenLabs, etc.) is not included.
+- **Codex**: add GPT 6.2 Sol and Astra.
+- **OpenCode Free**: add live-catalog context windows for ten free models; strip a trailing thinking-level override such as `(max)` from combo seats before the capability lookup.
+- **Translator**: keep the client billing header out of the cached Claude system prompt.
+- **Usage charts**: format billion and trillion token counts (`B`, `T`).
+- **Proxy pools**: upload the Cloudflare worker as a hand-built multipart body.
+- **Dependencies**: `npm audit fix` (follow-redirects, minimatch, typescript-eslint), vitest 4.1.12 in tests; Next.js stays pinned at 16.4.6.
+
 ## Fixes
+- **Claude Code auto-ping**: the toggle was stripped on read because `claudeAutoPing` was still a retired setting, so it showed off after every reload; the scheduler also lacked a Claude handler. Both are fixed.
 - **Dashboard icons**: reduce the self-hosted Material Symbols font size while retaining all icons and filled variants; keep icon names hidden until the font loads successfully.
 - **Routing**: stop reporting a misleading "All combo models unavailable" for a single model the capacity adapter filters out (a bare or unknown model id). Such a request now resolves as one model and fails with `400 Invalid model format`, so the client sees the real cause instead of a phantom combo failure.
 
