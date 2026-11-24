@@ -10,7 +10,7 @@
     "test:basic": "node --test unit/basic-provider-media.test.js unit/basic-removed-tools.test.js unit/basic-integration.test.mjs unit/basic-capacity-adapter.test.mjs auth/password-only.test.js"
   },
   "devDependencies": {
-    "vitest": "^4.0.0"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=18"
