@@ -19,7 +19,7 @@ vi.mock("@/app/api/usage/[connectionId]/route.js", () => ({
 vi.mock("@/shared/constants/config", () => ({
   QUOTA_AUTOPING_CONFIG: {
     tickIntervalMs: 60000,
-    pingLeadMs: 5000,
+    pingLeadMs: 0,
     refreshAheadMs: 300000,
     failureCooldownMs: 900000,
     providers: {
@@ -29,6 +29,9 @@ vi.mock("@/shared/constants/config", () => ({
         pingModel: "claude-haiku-4-5-20251001",
         pingText: "hi",
         pingMaxTokens: 1,
+        pingWhenIdle: true,
+        weeklyQuotaKey: "weekly (7d)",
+        minPingIntervalMs: 600000,
       },
       codex: {
         settingsKey: "codexAutoPing",
@@ -368,6 +371,48 @@ describe("quota auto-ping", () => {
     expect(init.headers.Authorization).toBe("Bearer token");
     expect(JSON.parse(init.body)).toMatchObject({ model: "claude-haiku-4-5-20251001", max_tokens: 1 });
     expect(deps.getExecutor).not.toHaveBeenCalled();
+  });
+
+  function optInClaude(quotas, connection = {}) {
+    deps.getSettings.mockResolvedValue({ claudeAutoPing: { connections: { "claude-1": true } } });
+    deps.getProviderConnections.mockImplementation(async ({ provider }) => (
+      provider === "claude" ? [{ id: "claude-1", provider: "claude", authType: "oauth", accessToken: "token", ...connection }] : []
+    ));
+    getClaudeUsage.mockResolvedValue({ quotas });
+  }
+  const idleSession = { used: 0, total: 100, resetAt: null };
+
+  it("starts a Claude 5h window when none is running", async () => {
+    optInClaude({ "session (5h)": idleSession, "weekly (7d)": { used: 8, total: 100 } });
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
+    const saved = deps.updateProviderConnection.mock.calls[0][1];
+    expect(saved.lastPingAt).toBe("2026-01-01T12:00:00.000Z");
+    expect(saved).not.toHaveProperty("lastPingedResetAt");
+  });
+
+  it("does not re-ping an idle Claude window while usage data is still stale", async () => {
+    optInClaude({ "session (5h)": idleSession }, { lastPingAt: "2026-01-01T11:55:00.000Z" });
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not ping Claude when the weekly quota is exhausted", async () => {
+    optInClaude({ "session (5h)": idleSession, "weekly (7d)": { used: 100, total: 100 } });
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not ping Claude before the running window resets", async () => {
+    optInClaude({ "session (5h)": { used: 40, total: 100, resetAt: "2026-01-01T12:00:03.000Z" } });
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not ping Claude when the usage payload has no session quota", async () => {
+    optInClaude({});
+    await runQuotaAutoPingTick(deps, state);
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
   });
 
   it("does not ping Claude Code connections that did not opt in", async () => {

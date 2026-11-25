@@ -118,6 +118,8 @@ async function sendClaudePing(connection, providerConfig, proxyOptions, deps) {
       messages: [{ role: "user", content: providerConfig.pingText }],
     }),
   }, proxyOptions);
+  if (!res.ok) console.warn(`[AutoPing] claude:${connection.id}: upstream returned ${res.status}`);
+  try { await drainResponseBody(res); } catch { /* the status already decides the outcome */ }
   return res.ok;
 }
 
@@ -212,25 +214,29 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   const usage = await handler.getUsage(connection.accessToken, proxyOptions);
   const quotas = usage?.quotas || {};
   const quota = quotas?.[providerConfig.quotaKey];
-  const resetAt = quota?.resetAt;
-  if (!resetAt) return;
+  const resetAt = quota?.resetAt || null;
+  // No running window: the provider reports an untouched quota without a reset time.
+  const idle = providerConfig.pingWhenIdle === true && !resetAt && toFiniteNumber(quota?.used) === 0;
+  if (!resetAt && !idle) return;
 
-  state.resetCache[key] = resetAt;
+  if (resetAt) state.resetCache[key] = resetAt;
+  else delete state.resetCache[key];
 
   if (providerConfig.skipWhenBlockingQuotaExhausted && hasExhaustedBlockingQuota(quotas, providerConfig.quotaKey)) return;
   if (isQuotaExhausted(quota)) return;
+  if (providerConfig.weeklyQuotaKey && isQuotaExhausted(quotas[providerConfig.weeklyQuotaKey])) return;
 
   // A sliding codex quota reset just gave this account a fresh window: clear any
   // stale model locks so routing can retry it immediately instead of waiting out
   // the previous usage_limit_reached cooldown.
   const now = Date.now();
-  const resetKey = normalizeResetKey(resetAt);
+  const resetKey = resetAt ? normalizeResetKey(resetAt) : null;
   const lastPingedResetKey = connection.lastPingedResetKey || normalizeResetKey(connection.lastPingedResetAt);
 
   // Claude waits for reset. Codex pings only when resetAt slides, which means the 5h window is inactive.
-  if (!shouldPingForReset(providerConfig, cachedReset, resetAt, now)) return;
+  if (!idle && !shouldPingForReset(providerConfig, cachedReset, resetAt, now)) return;
   if (wasPingedRecently(connection, providerConfig.minPingIntervalMs, now)) return;
-  if (lastPingedResetKey === resetKey) return;
+  if (!idle && lastPingedResetKey === resetKey) return;
 
   if (providerConfig.pingWhenResetAtSlides) {
     await deps.updateProviderConnection(connection.id, buildClearModelLocksUpdate(connection));
@@ -240,18 +246,17 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   if (!ok) {
     // Do not mark reset as pinged unless upstream accepted the tiny request.
     state.failureCache[key] = Date.now();
-    console.warn(`[AutoPing] ${provider}:${connection.id}: ping failed (reset ${resetAt})`);
+    console.warn(`[AutoPing] ${provider}:${connection.id}: ping failed (reset ${resetAt || "idle"})`);
     return;
   }
 
   delete state.failureCache[key];
   await deps.updateProviderConnection(connection.id, {
-    lastPingedResetAt: resetAt,
-    lastPingedResetKey: resetKey,
+    ...(resetAt ? { lastPingedResetAt: resetAt, lastPingedResetKey: resetKey } : {}),
     lastPingAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
-  console.log(`[AutoPing] ${provider}:${connection.id}: ping sent (reset ${resetAt})`);
+  console.log(`[AutoPing] ${provider}:${connection.id}: ping sent (reset ${resetAt || "idle"})`);
 }
 
 function createDefaultDeps() {

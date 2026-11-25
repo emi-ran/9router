@@ -65,7 +65,7 @@ export const CLIENT_STORE_TTL_MS = 60000;
 // Quota auto-ping: keep 5h windows warm by sending a tiny request right after reset.
 export const QUOTA_AUTOPING_CONFIG = {
   tickIntervalMs: 60000,                // scheduler tick
-  pingLeadMs: 5000,                     // fire once reset passes (within tolerance)
+  pingLeadMs: 0,                        // never fire early: a ping before reset only lands in the old window
   refreshAheadMs: 300000,               // refetch usage when within 5min of reset
   failureCooldownMs: 900000,            // avoid failed ping spam while upstream/auth is unhealthy
   providers: {
@@ -75,6 +75,10 @@ export const QUOTA_AUTOPING_CONFIG = {
       pingModel: "claude-haiku-4-5-20251001",
       pingText: "hi",
       pingMaxTokens: 1,
+      // Claude reports no reset time while no 5h window is running; ping then to start one.
+      pingWhenIdle: true,
+      weeklyQuotaKey: "weekly (7d)",
+      minPingIntervalMs: 600000,        // usage is cached 5 min, so do not re-ping on stale idle data
     },
     codex: {
       settingsKey: "codexAutoPing",
