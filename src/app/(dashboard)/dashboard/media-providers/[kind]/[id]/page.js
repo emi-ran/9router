@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Card, Badge, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
 import CodexTranscriptionNotice from "@/mine/stt/CodexTranscriptionNotice.jsx";
 import { SttExampleCard } from "./components/SttExampleCard";
+import { LiveExampleCard } from "./components/LiveExampleCard";
+import { VoiceCallsCard } from "./components/VoiceCallsCard";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS,  } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
@@ -118,11 +120,28 @@ export default function MediaProviderDetailPage() {
         </>
       )}
 
+      {kind === "live" && id === "codex" && (
+        <>
+          <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+            <span className="material-symbols-outlined text-[20px] mt-0.5">warning</span>
+            <p className="text-sm">
+              Unofficial upstream: it may change or restrict Codex accounts at any time. Each call spends Codex account quota.
+              An API key is always required, even when Require API key is off. At most 2 concurrent calls, 300 s each.
+            </p>
+          </div>
+          <p className="text-sm text-text-muted">
+            Accounts, priorities, proxies and enable/disable settings are shared with chat.{" "}
+            <Link href="/dashboard/providers/codex" className="text-primary hover:underline">Manage Codex chat accounts</Link>
+          </p>
+          <VoiceCallsCard />
+        </>
+      )}
+
       {/* Connections */}
       {!isCustom && provider.noAuth ? (
         <NoAuthProxyCard providerId={id} />
       ) : (
-        <ConnectionsCard providerId={id} isOAuth={kind === "stt" && id === "codex"} />
+        <ConnectionsCard providerId={id} isOAuth={(kind === "stt" || kind === "live") && id === "codex"} />
       )}
 
       {/* Models - hidden for tts/webSearch/webFetch (provider IS the model); custom uses prefix as alias */}
@@ -133,7 +152,14 @@ export default function MediaProviderDetailPage() {
           <p className="text-xs text-text-muted mt-1">Codex transcription · json / text</p>
         </Card>
       )}
-      {kind !== "stt" && kind !== "tts" && kind !== "webSearch" && kind !== "webFetch" && (
+      {kind === "live" && id === "codex" && (
+        <Card>
+          <h2 className="text-lg font-semibold mb-2">Models</h2>
+          <code className="text-sm">cx/voice</code>
+          <p className="text-xs text-text-muted mt-1">Codex realtime voice · WebRTC · 300 s max</p>
+        </Card>
+      )}
+      {kind !== "stt" && kind !== "tts" && kind !== "live" && kind !== "webSearch" && kind !== "webFetch" && (
         <ModelsCard
           providerId={id}
           kindFilter={kind}
@@ -159,6 +185,7 @@ export default function MediaProviderDetailPage() {
       )}
       {kind === "tts" && null}
       {kind === "stt" && id === "codex" && <SttExampleCard providerId={id} />}
+      {kind === "live" && id === "codex" && <LiveExampleCard />}
       {!isCustom && KIND_EXAMPLE_CONFIG[kind] && <GenericExampleCard providerId={id} kind={kind} />}
 
       {false}

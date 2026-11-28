@@ -30,7 +30,7 @@ function buildProviderEntry(r) {
     ...(r.hidden ? { hidden: true } : {}),
     ...mediaFields,
     // Codex transcription reuses the existing chat OAuth account pool.
-    ...(r.id === "codex" ? { serviceKinds: [...new Set([...(mediaFields.serviceKinds || ["llm"]), "stt"])] } : {}),
+    ...(r.id === "codex" ? { serviceKinds: [...new Set([...(mediaFields.serviceKinds || ["llm"]), "stt", "live"])] } : {}),
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
     ...(r.hasFree ? { hasFree: true } : {}),
     ...(r.thinkingConfig ? { thinkingConfig: r.thinkingConfig } : {}),
@@ -79,6 +79,7 @@ export const WEB_COOKIE_PROVIDERS = byCategory("webCookie");
 export const MEDIA_PROVIDER_KINDS = [
   { id: "tts",         label: "Text to speech", icon: "record_voice_over", endpoint: { method: "POST", path: "/v1/audio/speech" } },
   { id: "stt",         label: "Speech to Text", icon: "mic",               endpoint: { method: "POST", path: "/v1/audio/transcriptions" } },
+  { id: "live",        label: "Live",           icon: "graphic_eq",        endpoint: { method: "POST", path: "/v1/live" } },
   { id: "image",       label: "Text to Image",  icon: "brush",             endpoint: { method: "POST", path: "/v1/images/generations" } },
   { id: "webSearch",   label: "Web Search",     icon: "travel_explore",    endpoint: { method: "POST", path: "/v1/search" } },
   { id: "webFetch",    label: "Web Fetch",      icon: "language",          endpoint: { method: "POST", path: "/v1/web/fetch" } },

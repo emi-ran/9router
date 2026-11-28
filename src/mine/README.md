@@ -24,6 +24,7 @@ Browser-to-OpenAI voice calls over WebRTC, backed by Codex OAuth accounts. The a
 - Unofficial upstream: it may change or restrict accounts at any time.
 - Not compatible with the OpenAI Realtime API. Codex CLI `/voice` is not supported.
 - Off by default: enable **Voice calls (/v1/live)** on the Endpoint dashboard (`voiceEnabled`). When off, the routes return 403.
+- Dashboard: **Media Providers > Live > OpenAI Codex** has the same toggle, usage docs for the three request styles, and a "Start call" test page. The browser example needs your own backend; `/v1/live` sends no CORS headers.
 - The API key stays on the app server. Never ship it to the browser.
 - Auth is always required (`Authorization: Bearer <key>` or `x-api-key`), even when "Require API key" is off and for loopback requests.
 - No CORS: no `Access-Control-Allow-*` headers and no OPTIONS handler.
@@ -62,6 +63,8 @@ Browser-to-OpenAI voice calls over WebRTC, backed by Codex OAuth accounts. The a
 4. Browser: `setRemoteDescription({type:"answer", sdp})`.
 
 Events on the data channel: `session.started`, `input_transcript.added`, `output_transcript.added`, `turn.created`, `turn.delta`, `turn.done`, `delegation.created` (`item.id`, `item.content[].text`), `session.context.appended`, `delegation.context.appended`, `session.closed`, `error`.
+
+Transcripts: `turn.done` carries `turn.role` (`user` or `assistant`) and the finished `turn.transcript`; `input_transcript.added` and `output_transcript.added` carry partial text in `item.text`.
 
 Client to data channel:
 
