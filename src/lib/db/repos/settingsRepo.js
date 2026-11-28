@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = {
   },
   requireLogin: true,
   requireApiKey: true,
+  voiceEnabled: false,
   tunnelDashboardAccess: true,
   enableObservability: false,
   observabilityMaxRecords: 1000,
