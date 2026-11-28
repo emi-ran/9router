@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import "@/mine/fonts/inter.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env
@@ -7,11 +7,6 @@ import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
 // Hook console immediately at module load time (server-side only, runs once)
 initConsoleLogCapture();
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata = {
   title: "9Router - AI Infrastructure Management",
@@ -29,6 +24,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="preload" href="/fonts/inter-latin-v1.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/material-symbols-outlined-basic-v1.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         {/* Apply persisted theme before first paint so a reload does not flash the
             default (light) theme before the client store hydrates. Mirrors the
@@ -44,7 +40,7 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <ThemeProvider>
           {children}
         </ThemeProvider>

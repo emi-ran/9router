@@ -34,7 +34,9 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
 # Build-only limits; Node heap is not total process RAM.
-RUN NODE_OPTIONS="--max-old-space-size=${BUILD_NODE_MAX_OLD_SPACE_SIZE}" \
+# The cache mount keeps Next's compile cache between builds on the same builder.
+RUN --mount=type=cache,id=9router-next-cache,target=/app/.next/cache,sharing=locked \
+    NODE_OPTIONS="--max-old-space-size=${BUILD_NODE_MAX_OLD_SPACE_SIZE}" \
     NINEROUTER_BUILD_CPUS="${BUILD_CPUS}" npm run build
 
 FROM ${NODE_IMAGE} AS runner
@@ -55,34 +57,37 @@ ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/custom-server.js ./custom-server.js
-COPY --from=builder /app/open-sse ./open-sse
-# Ensure `next` is available at runtime in case tracing did not include it.
-COPY --from=builder /app/node_modules/next ./node_modules/next
-# sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
-# so the last-resort DB driver would abort with ENOENT on the missing binary.
-COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
-# node-machine-id is createRequire-loaded at runtime; tracing omits it.
-COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machine-id
-# The copied open-sse source dynamically imports Undici for HTTP proxies;
-# standalone tracing does not necessarily include this runtime dependency.
-COPY --from=builder /app/node_modules/undici ./node_modules/undici
-# Native bindings are loaded dynamically and omitted by standalone tracing.
-COPY --from=builder /app/node_modules/wreq-js ./node_modules/wreq-js
-COPY --from=builder /app/node_modules/@wreq-js ./node_modules/@wreq-js
-
-RUN mkdir -p /app/data && chown -R node:node /app && \
-  mkdir -p /app/data-home && chown node:node /app/data-home && \
-  (ln -sf /app/data-home /root/.9router 2>/dev/null || true)
-
 # Avoid a full distribution upgrade in the runtime image. It makes builds less
 # reproducible and is unrelated to installing the runtime entrypoint helper.
+# Kept above the app files so a code change does not reinstall these packages.
 RUN apk add --no-cache su-exec ffmpeg && \
   printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
   chmod +x /entrypoint.sh
+
+# Ownership is set while copying; a recursive chown afterwards is slow and
+# duplicates every file into another layer.
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/custom-server.js ./custom-server.js
+COPY --from=builder --chown=node:node /app/open-sse ./open-sse
+# Ensure `next` is available at runtime in case tracing did not include it.
+COPY --from=builder --chown=node:node /app/node_modules/next ./node_modules/next
+# sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
+# so the last-resort DB driver would abort with ENOENT on the missing binary.
+COPY --from=builder --chown=node:node /app/node_modules/sql.js ./node_modules/sql.js
+# node-machine-id is createRequire-loaded at runtime; tracing omits it.
+COPY --from=builder --chown=node:node /app/node_modules/node-machine-id ./node_modules/node-machine-id
+# The copied open-sse source dynamically imports Undici for HTTP proxies;
+# standalone tracing does not necessarily include this runtime dependency.
+COPY --from=builder --chown=node:node /app/node_modules/undici ./node_modules/undici
+# Native bindings are loaded dynamically and omitted by standalone tracing.
+COPY --from=builder --chown=node:node /app/node_modules/wreq-js ./node_modules/wreq-js
+COPY --from=builder --chown=node:node /app/node_modules/@wreq-js ./node_modules/@wreq-js
+
+RUN mkdir -p /app/data /app/data-home && \
+  chown node:node /app /app/data /app/data-home && \
+  (ln -sf /app/data-home /root/.9router 2>/dev/null || true)
 
 EXPOSE 20128
 

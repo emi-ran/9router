@@ -3,6 +3,9 @@
 ## Features
 - **Voice calls** (unofficial): `POST /v1/live` and `DELETE /v1/live/{id}` open and close a Codex realtime voice call on a Codex OAuth account; audio flows between the client and OpenAI over WebRTC. Off by default (toggle on the Endpoint page), always requires an API key, at most 2 concurrent calls of 300 s each. Dashboard: Media Providers > Live (Codex) with usage docs and a try-it call. Free plan accounts are skipped, and an upstream rejection reports its HTTP status. Contract and client flow: `src/mine/README.md`.
 
+## Build
+- **Faster builds**: the Inter font is self-hosted, so `next build` no longer fetches Google Fonts. The Dockerfile keeps Next's compile cache between builds, installs the runtime Alpine packages before copying app files, and sets file ownership during the copy instead of a recursive `chown`.
+
 ## Upstream backports (selected from v0.5.123)
 Basic is based on v0.5.119 and carries only these upstream v0.5.123 fixes; the rest of v0.5.123 (Antigravity, Kiro, NVIDIA, ElevenLabs, etc.) is not included.
 - **Codex**: add GPT 6.2 Sol and Astra.

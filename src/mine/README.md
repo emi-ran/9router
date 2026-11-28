@@ -17,6 +17,13 @@ Refresh tokens are accepted only for session renewal. They cannot directly autho
 
 Implementation: `src/mine/auth/rememberMe.js` and `src/mine/auth/RememberMeCheckbox.js`.
 
+## Build speed
+
+Changes to upstream files that must survive an upstream merge:
+
+- Inter is self-hosted (`src/mine/fonts/inter.css`, `public/fonts/inter-*-v1.woff2`, preload in `src/app/layout.js`). Do not bring back `next/font/google`: it makes the build wait on Google Fonts. Rename the files when their content changes.
+- `Dockerfile`: `/app/.next/cache` is a BuildKit cache mount, `apk add su-exec ffmpeg` runs before the app files are copied, and every runner `COPY` uses `--chown=node:node` (a new one must too; there is no recursive `chown`).
+
 ## Voice calls (/v1/live)
 
 Browser-to-OpenAI voice calls over WebRTC, backed by Codex OAuth accounts. The app server calls 9router with a 9router API key; audio then flows between the client and the upstream.
