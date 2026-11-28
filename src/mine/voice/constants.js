@@ -24,6 +24,7 @@ export const BODY_TIMEOUT_MS = 15_000;
 
 export const MAX_BODY_BYTES = 256 * 1024;
 export const MAX_ANSWER_BYTES = 256 * 1024;
+export const MAX_ERROR_BYTES = 8 * 1024;
 export const MAX_INSTRUCTIONS_CHARS = 16_000;
 export const MAX_CONTEXT_ITEMS = 50;
 export const MAX_CONTEXT_CHARS = 16_000;

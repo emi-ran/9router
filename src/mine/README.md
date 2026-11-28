@@ -78,6 +78,8 @@ End of call: the app server calls `DELETE /v1/live/{id}`. Otherwise the slot sta
 ### Account eligibility
 
 - Only Codex OAuth accounts are used. A failed create (401, 403, 429) cools the account down for voice only and tries the next one.
+- Free plan accounts are skipped without a call and without a cooldown (they are still used for chat). The plan comes from the access token, else the stored `chatgptPlanType`.
+- Any other upstream status stops the attempt with 502 `Codex voice call failed (upstream HTTP <status> <code>)`; the Console Log shows the same status with a short account id. Upstream message text is never logged or returned.
 - Accounts behind a relay proxy (Vercel, Cloudflare, Deno) are skipped: the hangup WebSocket cannot go through a relay, so the time limit could not be enforced.
 - An account with a model allow-list that does not include `voice` is not selected.
 

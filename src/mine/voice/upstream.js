@@ -1,7 +1,7 @@
 import { WebSocket } from "undici";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import {
-  CALL_ID_PATTERN, CREATE_URL, CREATE_TIMEOUT_MS, HANGUP_TIMEOUT_MS, MAX_ANSWER_BYTES, USER_AGENT,
+  CALL_ID_PATTERN, CREATE_URL, CREATE_TIMEOUT_MS, HANGUP_TIMEOUT_MS, MAX_ANSWER_BYTES, MAX_ERROR_BYTES, USER_AGENT,
 } from "./constants.js";
 import { VoiceError } from "./validate.js";
 import { websocketDispatcher } from "./proxy.js";
@@ -16,6 +16,22 @@ export function isUsableOAuth(credentials) {
   return !!credentials && credentials.authType === "oauth"
     && typeof credentials.accessToken === "string" && /^[\x21-\x7e]+$/.test(credentials.accessToken)
     && typeof accountId(credentials) === "string" && /^[\x21-\x7e]{1,256}$/.test(accountId(credentials));
+}
+
+function tokenPlan(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+    return payload?.["https://api.openai.com/auth"]?.chatgpt_plan_type;
+  } catch {
+    return undefined;
+  }
+}
+
+// Free plan accounts are rejected by the voice upstream. The token claim wins:
+// the stored plan is only written at login or import and goes stale.
+export function isFreePlan(credentials) {
+  const plan = tokenPlan(credentials?.accessToken) || credentials?.providerSpecificData?.chatgptPlanType;
+  return String(plan || "").trim().toLowerCase() === "free";
 }
 
 function sessionHeaders(credentials, sessionId, voiceSessionId) {
@@ -59,6 +75,22 @@ async function readBoundedText(response, limit) {
     await reader.cancel().catch(() => {});
   }
   return Buffer.concat(chunks, size).toString("utf8");
+}
+
+const ERROR_CODE = /^[a-z][a-z0-9_]{0,63}$/;
+
+// Describes a failed create for logs and errors. Only the status and a short
+// machine code leave this function, never upstream text.
+export async function readFailureReason(response) {
+  let code;
+  try {
+    const body = JSON.parse(await readBoundedText(response, MAX_ERROR_BYTES));
+    code = [body?.error?.code, body?.error?.type, body?.detail?.code]
+      .find((value) => typeof value === "string" && ERROR_CODE.test(value));
+  } catch {
+    // No readable JSON body: the status alone is reported.
+  }
+  return code ? `upstream HTTP ${response.status} ${code}` : `upstream HTTP ${response.status}`;
 }
 
 // The call id comes from Location; without a valid id there is nothing to hang up.

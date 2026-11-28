@@ -10,7 +10,10 @@ import {
 import { VoiceError, buildUpstreamBody, parseCreateBody, readJsonBody } from "./validate.js";
 import { getCall, hashKey, ownsCall, removeCall, reserveSlot } from "./registry.js";
 import { resolveAccountProxy, resolveWebSocketRoute } from "./proxy.js";
-import { hangupCall, isUsableOAuth, postCall, readAnswerSdp, readCallId } from "./upstream.js";
+import {
+  hangupCall, isFreePlan, isUsableOAuth, postCall, readAnswerSdp, readCallId, readFailureReason,
+} from "./upstream.js";
+import * as log from "@/sse/utils/logger.js";
 
 const JSON_HEADERS = { "Cache-Control": "no-store" };
 const ACCOUNT_STATUSES = new Set([401, 403, 429]);
@@ -25,6 +28,9 @@ function errorResponse(status, message) {
 function failure(error) {
   if (error instanceof VoiceError) return errorResponse(error.status, error.message);
   if (error?.name === "AbortError" || error?.name === "TimeoutError") return errorResponse(504, "Codex voice call timed out");
+  // Name and code only: an error message may carry header values.
+  const code = error?.code || error?.cause?.code;
+  log.warn("VOICE", `request failed: ${error?.name || "Error"}${typeof code === "string" ? ` ${code}` : ""}`);
   return errorResponse(502, "Codex voice call failed");
 }
 
@@ -70,14 +76,22 @@ async function openCall(payload, signal) {
   const sessionId = crypto.randomUUID();
   const voiceSessionId = crypto.randomUUID();
   const tried = new Set();
+  let skippedFree = false;
   while (true) {
     const selected = await getProviderCredentials(CODEX_PROVIDER, tried, VOICE_SCOPE);
-    if (!selected) throw new VoiceError(503, "No eligible Codex OAuth account for voice");
+    if (!selected) {
+      const why = skippedFree ? " (free plan accounts are skipped)" : "";
+      throw new VoiceError(503, `No eligible Codex OAuth account for voice${why}`);
+    }
     if (selected.allRateLimited) throw new VoiceError(429, "Codex voice is rate limited");
     const connectionId = selected.connectionId;
     if (typeof connectionId !== "string" || tried.has(connectionId)) throw new VoiceError(503, "No eligible Codex OAuth account for voice");
     tried.add(connectionId);
     if (!isUsableOAuth(selected)) continue;
+    if (isFreePlan(selected)) {
+      skippedFree = true;
+      continue;
+    }
 
     // Fail closed: skip (without marking unhealthy) an account whose proxy cannot carry the hangup.
     const proxy = await resolveAccountProxy(selected._connection?.providerSpecificData || selected.providerSpecificData);
@@ -108,9 +122,10 @@ async function openCall(payload, signal) {
       }
       return { id, sdp, connectionId, credentials, sessionId, voiceSessionId };
     }
-    await discardBody(response);
+    const reason = await readFailureReason(response);
+    log.warn("VOICE", `create failed: ${reason}, account ${connectionId.slice(0, 8)}`);
     // Only account-scoped failures cool the account down (voice scope only). Everything else is 502.
-    if (!ACCOUNT_STATUSES.has(response.status)) throw new VoiceError(502, "Codex voice call failed");
+    if (!ACCOUNT_STATUSES.has(response.status)) throw new VoiceError(502, `Codex voice call failed (${reason})`);
     await markAccountUnavailable(connectionId, response.status, "Codex voice call failed", CODEX_PROVIDER, VOICE_SCOPE);
     continue;
   }

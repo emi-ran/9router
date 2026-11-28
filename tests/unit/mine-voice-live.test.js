@@ -417,6 +417,35 @@ describe("account selection and failover", () => {
     expect((await createCall(post({ sdp: SDP_OFFER }))).status).toBe(503);
   });
 
+  const planToken = (plan) => `h.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_plan_type: plan } })).toString("base64url")}.s`;
+  const withPlan = (account, plan) => ({ ...account, providerSpecificData: { ...account.providerSpecificData, chatgptPlanType: plan } });
+
+  it.each([
+    ["token claim", account({ accessToken: planToken("free") })],
+    ["stored plan", withPlan(account(), "Free")],
+  ])("skips a free plan account (%s) without calling upstream or marking it", async (_label, free) => {
+    deps.getProviderCredentials.mockResolvedValueOnce(free).mockResolvedValueOnce(account({ connectionId: "acct-2", workspace: "ws-2" }));
+    expect((await createCall(post({ sdp: SDP_OFFER }))).status).toBe(201);
+    expect(deps.proxyAwareFetch).toHaveBeenCalledTimes(1);
+    expect(deps.proxyAwareFetch.mock.calls[0][1].headers["chatgpt-account-id"]).toBe("ws-2");
+    expect(deps.getProviderCredentials.mock.calls[1][1].has("acct-1")).toBe(true);
+    expect(deps.checkAndRefreshToken).toHaveBeenCalledTimes(1);
+    expect(deps.markAccountUnavailable).not.toHaveBeenCalled();
+  });
+
+  it("trusts the token claim over a stale stored free plan", async () => {
+    deps.getProviderCredentials.mockResolvedValueOnce(withPlan(account({ accessToken: planToken("plus") }), "free"));
+    expect((await createCall(post({ sdp: SDP_OFFER }))).status).toBe(201);
+  });
+
+  it("says why when only free plan accounts exist", async () => {
+    deps.getProviderCredentials.mockResolvedValueOnce(withPlan(account(), "free")).mockResolvedValueOnce(null);
+    const response = await createCall(post({ sdp: SDP_OFFER }));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.message).toBe("No eligible Codex OAuth account for voice (free plan accounts are skipped)");
+    expect(deps.proxyAwareFetch).not.toHaveBeenCalled();
+  });
+
   it("does not retry or cool down the account on upstream 503", async () => {
     deps.proxyAwareFetch.mockResolvedValueOnce(new Response("busy", { status: 503 }));
     expect((await createCall(post({ sdp: SDP_OFFER }))).status).toBe(502);
@@ -426,9 +455,39 @@ describe("account selection and failover", () => {
 
   it.each([400, 404, 500])("on upstream %s returns 502, tries no other account and marks nothing", async (status) => {
     deps.proxyAwareFetch.mockResolvedValueOnce(new Response("oops", { status }));
-    expect((await createCall(post({ sdp: SDP_OFFER }))).status).toBe(502);
+    const response = await createCall(post({ sdp: SDP_OFFER }));
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.message).toBe(`Codex voice call failed (upstream HTTP ${status})`);
     expect(deps.getProviderCredentials).toHaveBeenCalledTimes(1);
     expect(deps.markAccountUnavailable).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["error.code", { error: { code: "model_not_supported", message: "upstream-secret" } }, " model_not_supported"],
+    ["detail.code", { detail: { code: "not_entitled", message: "upstream-secret" } }, " not_entitled"],
+    ["a code that is free text", { error: { code: "upstream-secret tok-1", message: "x" } }, ""],
+    ["an oversized body", { error: { code: "too_big", message: "x".repeat(20_000) } }, ""],
+  ])("reports status and only a short machine code for %s", async (_label, body, suffix) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    deps.proxyAwareFetch.mockResolvedValueOnce(Response.json(body, { status: 400 }));
+    const response = await createCall(post({ sdp: SDP_OFFER }));
+    const message = `Codex voice call failed (upstream HTTP 400${suffix})`;
+    expect((await response.json()).error.message).toBe(message);
+    const logged = warn.mock.calls.flat().join("\n");
+    expect(logged).toContain(`upstream HTTP 400${suffix}`);
+    expect(logged).not.toMatch(/upstream-secret|tok-1/);
+    warn.mockRestore();
+  });
+
+  it("logs the error name and code when the upstream gives no response", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    deps.proxyAwareFetch.mockRejectedValueOnce(Object.assign(new TypeError("upstream-secret tok-1"), { cause: { code: "ECONNRESET" } }));
+    const response = await createCall(post({ sdp: SDP_OFFER }));
+    expect((await response.json()).error.message).toBe("Codex voice call failed");
+    const logged = warn.mock.calls.flat().join("\n");
+    expect(logged).toContain("TypeError ECONNRESET");
+    expect(logged).not.toMatch(/upstream-secret|tok-1/);
+    warn.mockRestore();
   });
 
   it("a client's bad SDP never reaches the upstream, so it cannot cool down an account", async () => {
